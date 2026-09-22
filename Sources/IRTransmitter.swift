@@ -3,46 +3,200 @@ import Foundation
 
 @MainActor
 final class IRTransmitter: ObservableObject {
-    @Published private(set) var isSending = false
+    @Published private(set) var isScanning = false
+    @Published private(set) var isPaused = false
+    @Published private(set) var isPreviewing = false
     @Published private(set) var progress: Double = 0
     @Published private(set) var sentCount = 0
     @Published private(set) var totalCount = 0
     @Published private(set) var skippedCount = 0
     @Published private(set) var routeDescription = "Sin configurar"
     @Published private(set) var sampleRate: Double = 0
+    @Published private(set) var outputChannels: Int = 0
     @Published private(set) var warning: String?
     @Published private(set) var currentCodeID: String?
+    @Published private(set) var currentCodeName: String?
+    @Published private(set) var recentCodeIDs: [String] = []
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
+
     private var sessionToken = UUID()
     private var currentCodes: [IRCode] = []
+    private var currentIndex = 0
+    private var currentPace: ScanPace = .fast
+    private var currentCategory: IRDeviceCategory = .television
 
-    private let interCodeGapSeconds = 0.205
     private let prePadMicros: UInt64 = 15_000
 
     init() {
         engine.attach(player)
     }
 
-    func codeCount(for category: IRDeviceCategory, region: TVRegion) -> Int {
-        codes(for: category, region: region).count
+    func codeCount(
+        for category: IRDeviceCategory,
+        region: TVRegion
+    ) -> Int {
+        IRCodeCatalog.codes(
+            for: category,
+            region: region
+        ).count
     }
 
-    func start(category: IRDeviceCategory, region: TVRegion) {
-        start(codes: codes(for: category, region: region))
-    }
+    func start(
+        category: IRDeviceCategory,
+        region: TVRegion,
+        pace: ScanPace
+    ) {
+        stop(resetProgress: true)
 
-    func testCarrier() {
-        let code = IRCode(
-            id: "test-38k",
-            carrierHz: 38_000,
-            durationsMicros: [1_000_000, 20_000]
+        let codes = IRCodeCatalog.codes(
+            for: category,
+            region: region
         )
-        transmitSingle(code, label: "Prueba de portadora 38 kHz")
+
+        guard !codes.isEmpty else {
+            warning = "No hay códigos disponibles para esta categoría."
+            return
+        }
+
+        currentCategory = category
+        currentCodes = codes
+        currentIndex = 0
+        currentPace = pace
+        recentCodeIDs = []
+
+        do {
+            let format = try configureAudio()
+            try startEngine(format: format)
+
+            totalCount = currentCodes.count
+            sentCount = 0
+            skippedCount = 0
+            progress = 0
+            isScanning = true
+            isPaused = false
+            warning = audioWarning(for: format.sampleRate)
+
+            let token = UUID()
+            sessionToken = token
+            scheduleCurrent(
+                token: token,
+                format: format
+            )
+        } catch {
+            warning =
+                "No se pudo iniciar el audio: \(error.localizedDescription)"
+            isScanning = false
+        }
+    }
+
+    func pause() {
+        guard isScanning, !isPaused else { return }
+
+        sessionToken = UUID()
+        player.stop()
+        if engine.isRunning {
+            engine.stop()
+        }
+
+        isPaused = true
+        isPreviewing = false
+    }
+
+    func resume() {
+        guard isScanning, isPaused else { return }
+
+        do {
+            let format = try configureAudio()
+            try startEngine(format: format)
+
+            isPaused = false
+            let token = UUID()
+            sessionToken = token
+
+            scheduleCurrent(
+                token: token,
+                format: format
+            )
+        } catch {
+            warning =
+                "No se pudo reanudar: \(error.localizedDescription)"
+        }
+    }
+
+    func step(_ delta: Int) {
+        guard isScanning, !currentCodes.isEmpty else { return }
+
+        if !isPaused {
+            pause()
+        }
+
+        currentIndex = min(
+            max(0, currentIndex + delta),
+            currentCodes.count - 1
+        )
+
+        sentCount = currentIndex
+        progress =
+            Double(currentIndex)
+            / Double(max(1, totalCount))
+
+        preview(
+            code: currentCodes[currentIndex],
+            preserveScan: true
+        )
     }
 
     func stop() {
+        stop(resetProgress: false)
+    }
+
+    func candidateCodes() -> [IRCode] {
+        let ids = Array(recentCodeIDs.reversed().prefix(4))
+        return ids.compactMap { id in
+            currentCodes.first { $0.id == id }
+                ?? IRCodeCatalog.code(
+                    id: id,
+                    category: currentCategory
+                )
+        }
+    }
+
+    func markWorked() -> [IRCode] {
+        if isScanning && !isPaused {
+            pause()
+        }
+        return candidateCodes()
+    }
+
+    func send(
+        code: IRCode
+    ) {
+        preview(
+            code: code,
+            preserveScan: false
+        )
+    }
+
+    func testCarrier(
+        hz: Int
+    ) {
+        let code = IRCode(
+            id: "test-\(hz)",
+            carrierHz: hz,
+            durationsMicros: [1_000_000, 20_000]
+        )
+
+        preview(
+            code: code,
+            preserveScan: false
+        )
+    }
+
+    private func stop(
+        resetProgress: Bool
+    ) {
         sessionToken = UUID()
 
         if player.isPlaying {
@@ -52,80 +206,34 @@ final class IRTransmitter: ObservableObject {
             engine.stop()
         }
 
-        isSending = false
+        isScanning = false
+        isPaused = false
+        isPreviewing = false
         currentCodeID = nil
-    }
+        currentCodeName = nil
 
-    private func codes(
-        for category: IRDeviceCategory,
-        region: TVRegion
-    ) -> [IRCode] {
-        switch category {
-        case .television:
-            // Preserve the exact ordering that already powered off the user's
-            // TD Systems: universal front-set + TV-B-Gone first.
-            // The new Flipper-IRDB collection is appended afterwards.
-            return (
-                UniversalPowerCodes.codes
-                + region.codes
-                + GeneratedFlipperPowerDatabase.televisions
-            )
-
-        case .airConditioner:
-            return GeneratedFlipperPowerDatabase.airConditioners
-
-        case .projector:
-            return GeneratedFlipperPowerDatabase.projectors
-        }
-    }
-
-    private func start(codes: [IRCode]) {
-        stop()
-
-        progress = 0
-        sentCount = 0
-        totalCount = 0
-        skippedCount = 0
-
-        do {
-            let format = try configureAudio()
-
-            currentCodes = codes
-
-            guard !currentCodes.isEmpty else {
-                warning = "No hay códigos disponibles para esta categoría."
-                return
-            }
-
-            try startEngine(format: format)
-
-            totalCount = currentCodes.count
-            sentCount = 0
-            skippedCount = 0
+        if resetProgress {
             progress = 0
-            isSending = true
-            warning = audioWarning(for: format.sampleRate)
-
-            let token = UUID()
-            sessionToken = token
-
-            schedule(
-                index: 0,
-                token: token,
-                format: format
-            )
-        } catch {
-            warning =
-                "No se pudo iniciar el audio: \(error.localizedDescription)"
-            isSending = false
+            sentCount = 0
+            totalCount = 0
+            skippedCount = 0
         }
     }
 
-    private func transmitSingle(
-        _ code: IRCode,
-        label: String
+    private func preview(
+        code: IRCode,
+        preserveScan: Bool
     ) {
-        stop()
+        let wasScanning = isScanning
+        let wasPaused = isPaused
+
+        sessionToken = UUID()
+        if player.isPlaying {
+            player.stop()
+        }
+        if engine.isRunning {
+            engine.stop()
+        }
 
         do {
             let format = try configureAudio()
@@ -135,19 +243,28 @@ final class IRTransmitter: ObservableObject {
                 sampleRate: format.sampleRate
             ) else {
                 warning =
-                    "\(label): la salida no puede representar esa portadora con \(Int(format.sampleRate)) Hz."
+                    "La salida de \(Int(format.sampleRate)) Hz no puede representar con margen la portadora de \(code.carrierHz) Hz."
                 return
             }
 
             try startEngine(format: format)
             warning = audioWarning(for: format.sampleRate)
             currentCodeID = code.id
+            currentCodeName = code.displayName
+            remember(code)
+
+            if !preserveScan {
+                isPreviewing = true
+            }
 
             let buffer = render(
                 code: code,
                 format: format,
-                addGap: true
+                gapSeconds: 0.10
             )
+
+            let token = UUID()
+            sessionToken = token
 
             player.scheduleBuffer(
                 buffer,
@@ -156,16 +273,32 @@ final class IRTransmitter: ObservableObject {
                 completionCallbackType: .dataPlayedBack
             ) { [weak self] _ in
                 Task { @MainActor in
-                    self?.player.stop()
-                    self?.engine.stop()
-                    self?.currentCodeID = nil
+                    guard let self,
+                          self.sessionToken == token else {
+                        return
+                    }
+
+                    self.player.stop()
+                    if self.engine.isRunning {
+                        self.engine.stop()
+                    }
+
+                    self.isPreviewing = false
+
+                    if preserveScan {
+                        self.isScanning = wasScanning
+                        self.isPaused = wasPaused
+                    } else {
+                        self.currentCodeID = nil
+                        self.currentCodeName = nil
+                    }
                 }
             }
 
             player.play()
         } catch {
             warning =
-                "\(label): \(error.localizedDescription)"
+                "No se pudo transmitir: \(error.localizedDescription)"
         }
     }
 
@@ -191,6 +324,7 @@ final class IRTransmitter: ObservableObject {
 
         let output = session.currentRoute.outputs.first
         let channels = output?.channels?.count ?? 0
+        outputChannels = channels
 
         routeDescription =
             "\(output?.portName ?? "Salida desconocida") · \(channels) canal(es)"
@@ -201,7 +335,7 @@ final class IRTransmitter: ObservableObject {
                 code: 2,
                 userInfo: [
                     NSLocalizedDescriptionKey:
-                        "La ruta de salida no aparece como estéreo. Este emisor necesita 2 canales."
+                        "La ruta no aparece como estéreo. Este emisor necesita 2 canales."
                 ]
             )
         }
@@ -238,7 +372,6 @@ final class IRTransmitter: ObservableObject {
 
         engine.mainMixerNode.outputVolume = 1.0
         engine.prepare()
-
         try engine.start()
 
         player.volume = 1.0
@@ -248,7 +381,7 @@ final class IRTransmitter: ObservableObject {
     private func audioWarning(
         for rate: Double
     ) -> String {
-        "Salida: \(Int(rate)) Hz. Volumen multimedia al 100 %, Audio mono DESACTIVADO y balance centrado."
+        "Salida \(Int(rate)) Hz · Audio mono DESACTIVADO · balance centrado · volumen 100 %."
     }
 
     private func carrierIsRepresentable(
@@ -260,58 +393,52 @@ final class IRTransmitter: ObservableObject {
             ? 38_000.0
             : Double(carrierHz)
 
-        let audioTone = carrier / 2.0
+        let audioTone =
+            carrier / 2.0
 
-        // Leave a little margin below Nyquist and the DAC reconstruction filter.
         return audioTone <= sampleRate * 0.45
     }
 
-    private func schedule(
-        index: Int,
+    private func scheduleCurrent(
         token: UUID,
         format: AVAudioFormat
     ) {
-        guard isSending,
-              token == sessionToken else {
+        guard
+            isScanning,
+            !isPaused,
+            token == sessionToken
+        else {
             return
         }
 
-        guard index < currentCodes.count else {
-            isSending = false
-            progress = 1
-            sentCount = totalCount
-            currentCodeID = nil
-
-            player.stop()
-            engine.stop()
+        guard currentIndex < currentCodes.count else {
+            finishScan()
             return
         }
 
-        let code = currentCodes[index]
+        let code = currentCodes[currentIndex]
+
         currentCodeID = code.id
+        currentCodeName = code.displayName
 
         if !carrierIsRepresentable(
             code.carrierHz,
             sampleRate: format.sampleRate
         ) {
             skippedCount += 1
-            sentCount = index + 1
-            progress =
-                Double(index + 1)
-                / Double(max(1, totalCount))
-
-            schedule(
-                index: index + 1,
+            advanceAfterCode(
                 token: token,
                 format: format
             )
             return
         }
 
+        remember(code)
+
         let buffer = render(
             code: code,
             format: format,
-            addGap: true
+            gapSeconds: currentPace.gapSeconds
         )
 
         player.scheduleBuffer(
@@ -321,19 +448,16 @@ final class IRTransmitter: ObservableObject {
             completionCallbackType: .dataPlayedBack
         ) { [weak self] _ in
             Task { @MainActor in
-                guard let self,
-                      self.isSending,
-                      token == self.sessionToken else {
+                guard
+                    let self,
+                    self.isScanning,
+                    !self.isPaused,
+                    token == self.sessionToken
+                else {
                     return
                 }
 
-                self.sentCount = index + 1
-                self.progress =
-                    Double(index + 1)
-                    / Double(max(1, self.totalCount))
-
-                self.schedule(
-                    index: index + 1,
+                self.advanceAfterCode(
                     token: token,
                     format: format
                 )
@@ -341,10 +465,57 @@ final class IRTransmitter: ObservableObject {
         }
     }
 
+    private func advanceAfterCode(
+        token: UUID,
+        format: AVAudioFormat
+    ) {
+        sentCount = currentIndex + 1
+        progress =
+            Double(sentCount)
+            / Double(max(1, totalCount))
+
+        currentIndex += 1
+
+        if currentIndex >= currentCodes.count {
+            finishScan()
+        } else {
+            scheduleCurrent(
+                token: token,
+                format: format
+            )
+        }
+    }
+
+    private func finishScan() {
+        isScanning = false
+        isPaused = false
+        isPreviewing = false
+        progress = 1
+        sentCount = totalCount
+        currentCodeID = nil
+        currentCodeName = nil
+
+        player.stop()
+        if engine.isRunning {
+            engine.stop()
+        }
+    }
+
+    private func remember(_ code: IRCode) {
+        recentCodeIDs.removeAll { $0 == code.id }
+        recentCodeIDs.append(code.id)
+
+        if recentCodeIDs.count > 8 {
+            recentCodeIDs.removeFirst(
+                recentCodeIDs.count - 8
+            )
+        }
+    }
+
     private func render(
         code: IRCode,
         format: AVAudioFormat,
-        addGap: Bool
+        gapSeconds: Double
     ) -> AVAudioPCMBuffer {
         let sampleRate = format.sampleRate
 
@@ -353,10 +524,8 @@ final class IRTransmitter: ObservableObject {
                 $0 + UInt64($1)
             }
 
-        let gapMicros: UInt64 =
-            addGap
-            ? UInt64(interCodeGapSeconds * 1_000_000.0)
-            : 0
+        let gapMicros =
+            UInt64(max(0, gapSeconds) * 1_000_000.0)
 
         let totalMicros =
             prePadMicros
@@ -404,8 +573,6 @@ final class IRTransmitter: ObservableObject {
             ? 38_000.0
             : Double(code.carrierHz)
 
-        // Anti-phase stereo adapters with opposed LEDs create two optical
-        // pulses per audio cycle, hence half the desired IR carrier frequency.
         let audioHz =
             requestedCarrier / 2.0
 
@@ -447,9 +614,6 @@ final class IRTransmitter: ObservableObject {
                 segmentIndex % 2 == 0
 
             if isMark {
-                // Start every IR burst at phase zero. This matches the behavior
-                // of common audio-IR waveform generators and avoids arbitrary
-                // burst edges.
                 var phase = 0.0
 
                 while cursor < end {
@@ -457,11 +621,8 @@ final class IRTransmitter: ObservableObject {
                         amplitude
                         * Float(sin(phase))
 
-                    left[cursor] =
-                        sample
-
-                    right[cursor] =
-                        -sample
+                    left[cursor] = sample
+                    right[cursor] = -sample
 
                     phase += phaseIncrement
 
