@@ -6,189 +6,682 @@ struct OnlineIRLibraryView: View {
     @ObservedObject var customRemotes: CustomRemoteStore
     @Binding var category: IRDeviceCategory
 
-    @StateObject private var library = OnlineIRLibrary()
+    @StateObject private var library =
+        OnlineIRLibrary()
+
     @State private var brand = ""
     @State private var model = ""
-    @State private var source: OnlineIRSourceFilter = .all
+    @State private var source:
+        OnlineIRSourceFilter = .all
     @State private var deepSearch = false
     @State private var importURL = ""
-    @State private var imported: OnlineIRLoadedRemote?
-    @State private var importError: String?
+    @State private var imported:
+        OnlineIRLoadedRemote?
+    @State private var importError:
+        String?
     @State private var importing = false
+    @State private var selectedLetter = "A"
+
+    private let alphabet =
+        Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            .map(String.init)
+
+    private var visibleBrands: [String] {
+        library.brands.filter {
+            normalizedFirstLetter($0)
+                == selectedLetter
+        }
+    }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Label("Biblioteca IR online", systemImage: "globe")
-                        .font(.title2.bold())
-
-                    Text("Busca mandos publicados por la comunidad, pruébalos y guarda los que funcionen para usarlos después sin Internet.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    DeviceCategoryPicker(category: $category, disabled: library.isSearching)
-
-                    TextField("Marca (ej. TD Systems)", text: $brand)
-                        .textFieldStyle(.roundedBorder)
-                        .textInputAutocapitalization(.words)
-
-                    TextField("Modelo (opcional)", text: $model)
-                        .textFieldStyle(.roundedBorder)
-                        .textInputAutocapitalization(.never)
-
-                    Picker("Fuente", selection: $source) {
-                        ForEach(OnlineIRSourceFilter.allCases) { item in
-                            Text(item.title).tag(item)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Toggle("Búsqueda profunda", isOn: $deepSearch)
-
-                    Button {
-                        Task {
-                            await library.search(
-                                brand: brand,
-                                model: model,
-                                category: category,
-                                filter: source,
-                                deep: deepSearch
-                            )
-                        }
-                    } label: {
-                        HStack {
-                            if library.isSearching {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "magnifyingglass")
-                            }
-                            Text(library.isSearching ? "BUSCANDO…" : "BUSCAR CÓDIGOS")
-                                .fontWeight(.semibold)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                    .disabled(library.isSearching)
-                }
-                .padding()
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Importar desde Internet", systemImage: "link")
-                        .font(.headline)
-
-                    Text("También puedes pegar directamente un enlace HTTPS a un archivo .ir o CSV IRDB.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    TextField("https://…", text: $importURL)
-                        .textFieldStyle(.roundedBorder)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    Button {
-                        importing = true
-                        importError = nil
-                        Task {
-                            do {
-                                imported = try await library.importURL(importURL)
-                            } catch {
-                                importError = error.localizedDescription
-                            }
-                            importing = false
-                        }
-                    } label: {
-                        Label(importing ? "DESCARGANDO…" : "IMPORTAR URL", systemImage: "square.and.arrow.down")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(importing || importURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                    if let importError {
-                        Text(importError)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-                }
-                .padding()
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
-
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Resultados")
-                            .font(.headline)
-                        Spacer()
-                        Text("\(library.results.count)")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Text(library.status)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    if library.results.isEmpty && !library.isSearching {
-                        OnlineIREmptyView()
-                    } else {
-                        ForEach(library.results) { remote in
-                            NavigationLink {
-                                OnlineIRRemoteDetailView(
-                                    remote: remote,
-                                    library: library,
-                                    transmitter: transmitter,
-                                    learnedSignals: learnedSignals,
-                                    customRemotes: customRemotes,
-                                    category: category
-                                )
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "remote.fill")
-                                        .font(.title2)
-                                        .foregroundStyle(.red)
-
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(remote.displayName)
-                                            .font(.headline)
-                                            .lineLimit(2)
-                                        Text("\(remote.source.title) · \(remote.categoryLabel)")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Text(remote.path)
-                                            .font(.caption2.monospaced())
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                    }
-
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding()
-                            }
-                            .buttonStyle(.plain)
-                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                searchCard
+                brandBrowserCard
+                importCard
+                resultsCard
             }
             .padding()
         }
+        .irOLEDScreen()
         .navigationTitle("IR online")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await reloadBrands()
+        }
+        .onChange(of: category) { _ in
+            Task {
+                await reloadBrands()
+            }
+        }
+        .onChange(of: source) { _ in
+            Task {
+                await reloadBrands()
+            }
+        }
         .sheet(item: $imported) { loaded in
             NavigationStack {
                 OnlineIRLoadedRemoteView(
                     loaded: loaded,
                     transmitter: transmitter,
-                    learnedSignals: learnedSignals,
-                    customRemotes: customRemotes,
+                    learnedSignals:
+                        learnedSignals,
+                    customRemotes:
+                        customRemotes,
                     category: category
                 )
             }
         }
+    }
+
+    private var searchCard: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 12
+        ) {
+            Label(
+                "Biblioteca IR online",
+                systemImage: "globe"
+            )
+            .font(.title2.bold())
+
+            Text(
+                "Busca mandos publicados por la comunidad, pruébalos y guarda los que funcionen para usarlos después sin Internet."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+
+            DeviceCategoryPicker(
+                category: $category,
+                disabled: library.isSearching
+            )
+
+            TextField(
+                "Marca (ej. TD Systems)",
+                text: $brand
+            )
+            .textFieldStyle(.roundedBorder)
+            .textInputAutocapitalization(
+                .words
+            )
+
+            TextField(
+                "Modelo (opcional)",
+                text: $model
+            )
+            .textFieldStyle(.roundedBorder)
+            .textInputAutocapitalization(
+                .never
+            )
+
+            Picker(
+                "Fuente",
+                selection: $source
+            ) {
+                ForEach(
+                    OnlineIRSourceFilter
+                        .allCases
+                ) { item in
+                    Text(item.title)
+                        .tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Toggle(
+                "Búsqueda profunda",
+                isOn: $deepSearch
+            )
+
+            Button {
+                runSearch()
+            } label: {
+                HStack {
+                    if library.isSearching {
+                        ProgressView()
+                    } else {
+                        Image(
+                            systemName:
+                                "magnifyingglass"
+                        )
+                    }
+
+                    Text(
+                        library.isSearching
+                        ? "BUSCANDO…"
+                        : "BUSCAR CÓDIGOS"
+                    )
+                    .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(
+                .borderedProminent
+            )
+            .tint(.red)
+            .disabled(
+                library.isSearching
+            )
+        }
+        .padding()
+        .irCard(cornerRadius: 20)
+    }
+
+    private var brandBrowserCard:
+        some View
+    {
+        VStack(
+            alignment: .leading,
+            spacing: 12
+        ) {
+            HStack {
+                Label(
+                    "Explorar marcas",
+                    systemImage:
+                        "textformat.abc"
+                )
+                .font(.headline)
+
+                Spacer()
+
+                if library.isLoadingBrands {
+                    ProgressView()
+                } else {
+                    Text(
+                        library.brandStatus
+                    )
+                    .font(
+                        .caption
+                            .monospacedDigit()
+                    )
+                    .foregroundStyle(
+                        .secondary
+                    )
+                }
+            }
+
+            Text(
+                "Puedes usar la ruleta o navegar por la lista A–Z."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            if !library.brands.isEmpty {
+                Picker(
+                    "Marca",
+                    selection: $brand
+                ) {
+                    Text(
+                        "Sin seleccionar"
+                    )
+                    .tag("")
+
+                    ForEach(
+                        library.brands,
+                        id: \.self
+                    ) { item in
+                        Text(item)
+                            .tag(item)
+                    }
+                }
+                .pickerStyle(.wheel)
+                .frame(height: 132)
+                .clipped()
+
+                Divider()
+
+                HStack(
+                    alignment: .top,
+                    spacing: 10
+                ) {
+                    ScrollView {
+                        LazyVStack(
+                            spacing: 4
+                        ) {
+                            ForEach(
+                                alphabet,
+                                id: \.self
+                            ) { letter in
+                                let enabled =
+                                    library.brands
+                                        .contains {
+                                            normalizedFirstLetter(
+                                                $0
+                                            ) == letter
+                                        }
+
+                                Button {
+                                    selectedLetter =
+                                        letter
+                                    IRHaptics.tap()
+                                } label: {
+                                    Text(letter)
+                                        .font(
+                                            .caption.bold()
+                                        )
+                                        .frame(
+                                            width: 34,
+                                            height: 30
+                                        )
+                                        .foregroundStyle(
+                                            selectedLetter
+                                                == letter
+                                            ? Color.white
+                                            : enabled
+                                                ? Color.red
+                                                : Color.secondary
+                                                    .opacity(
+                                                        0.35
+                                                    )
+                                        )
+                                        .background(
+                                            selectedLetter
+                                                == letter
+                                            ? Color.red
+                                            : Color.clear,
+                                            in: RoundedRectangle(
+                                                cornerRadius:
+                                                    8
+                                            )
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(!enabled)
+                            }
+                        }
+                    }
+                    .frame(
+                        width: 42,
+                        height: 286
+                    )
+
+                    Divider()
+
+                    ScrollView {
+                        LazyVStack(
+                            alignment: .leading,
+                            spacing: 4
+                        ) {
+                            if visibleBrands.isEmpty {
+                                Text(
+                                    "No hay marcas con esta letra."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(
+                                    .secondary
+                                )
+                                .padding()
+                            } else {
+                                ForEach(
+                                    visibleBrands,
+                                    id: \.self
+                                ) { item in
+                                    Button {
+                                        brand = item
+                                        IRHaptics.tap()
+                                    } label: {
+                                        HStack {
+                                            Text(item)
+                                                .font(
+                                                    .subheadline
+                                                )
+                                                .foregroundStyle(
+                                                    .primary
+                                                )
+                                                .multilineTextAlignment(
+                                                    .leading
+                                                )
+
+                                            Spacer()
+
+                                            if brand == item {
+                                                Image(
+                                                    systemName:
+                                                        "checkmark.circle.fill"
+                                                )
+                                                .foregroundStyle(
+                                                    .red
+                                                )
+                                            } else {
+                                                Image(
+                                                    systemName:
+                                                        "chevron.right"
+                                                )
+                                                .font(
+                                                    .caption2
+                                                )
+                                                .foregroundStyle(
+                                                    .secondary
+                                                )
+                                            }
+                                        }
+                                        .padding(
+                                            .horizontal,
+                                            10
+                                        )
+                                        .padding(
+                                            .vertical,
+                                            9
+                                        )
+                                        .background(
+                                            brand == item
+                                                ? Color.red
+                                                    .opacity(
+                                                        0.12
+                                                    )
+                                                : Color.clear,
+                                            in: RoundedRectangle(
+                                                cornerRadius:
+                                                    10
+                                            )
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 286)
+                }
+
+                if !brand.isEmpty {
+                    Button {
+                        model = ""
+                        runSearch()
+                    } label: {
+                        Label(
+                            "BUSCAR \(brand.uppercased())",
+                            systemImage:
+                                "magnifyingglass"
+                        )
+                        .font(.subheadline.bold())
+                        .frame(
+                            maxWidth: .infinity
+                        )
+                    }
+                    .buttonStyle(
+                        .borderedProminent
+                    )
+                    .tint(.red)
+                    .disabled(
+                        library.isSearching
+                    )
+                }
+            } else if !library.isLoadingBrands {
+                Text(
+                    library.brandStatus
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(
+                    maxWidth: .infinity
+                )
+                .padding(.vertical, 28)
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 20)
+    }
+
+    private var importCard: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 10
+        ) {
+            Label(
+                "Importar desde Internet",
+                systemImage: "link"
+            )
+            .font(.headline)
+
+            Text(
+                "También puedes pegar directamente un enlace HTTPS a un archivo .ir o CSV IRDB."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            TextField(
+                "https://…",
+                text: $importURL
+            )
+            .textFieldStyle(.roundedBorder)
+            .textInputAutocapitalization(
+                .never
+            )
+            .autocorrectionDisabled()
+
+            Button {
+                importing = true
+                importError = nil
+
+                Task {
+                    do {
+                        imported =
+                            try await library
+                                .importURL(
+                                    importURL
+                                )
+                    } catch {
+                        importError =
+                            error
+                                .localizedDescription
+                    }
+
+                    importing = false
+                }
+            } label: {
+                Label(
+                    importing
+                    ? "DESCARGANDO…"
+                    : "IMPORTAR URL",
+                    systemImage:
+                        "square.and.arrow.down"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(
+                importing
+                || importURL
+                    .trimmingCharacters(
+                        in:
+                            .whitespacesAndNewlines
+                    )
+                    .isEmpty
+            )
+
+            if let importError {
+                Text(importError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 18)
+    }
+
+    private var resultsCard: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 10
+        ) {
+            HStack {
+                Text("Resultados")
+                    .font(.headline)
+
+                Spacer()
+
+                Text(
+                    "\(library.results.count)"
+                )
+                .font(
+                    .caption
+                        .monospacedDigit()
+                )
+                .foregroundStyle(.secondary)
+            }
+
+            Text(library.status)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if
+                library.results.isEmpty
+                && !library.isSearching
+            {
+                OnlineIREmptyView()
+            } else {
+                ForEach(
+                    library.results
+                ) { remote in
+                    NavigationLink {
+                        OnlineIRRemoteDetailView(
+                            remote: remote,
+                            library: library,
+                            transmitter:
+                                transmitter,
+                            learnedSignals:
+                                learnedSignals,
+                            customRemotes:
+                                customRemotes,
+                            category: category
+                        )
+                    } label: {
+                        HStack(
+                            spacing: 12
+                        ) {
+                            Image(
+                                systemName:
+                                    "remote.fill"
+                            )
+                            .font(.title2)
+                            .foregroundStyle(.red)
+
+                            VStack(
+                                alignment: .leading,
+                                spacing: 3
+                            ) {
+                                Text(
+                                    remote.displayName
+                                )
+                                .font(.headline)
+                                .lineLimit(2)
+
+                                Text(
+                                    "\(remote.source.title) · \(remote.categoryLabel)"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(
+                                    .secondary
+                                )
+
+                                Text(remote.path)
+                                    .font(
+                                        .caption2
+                                            .monospaced()
+                                    )
+                                    .foregroundStyle(
+                                        .secondary
+                                    )
+                                    .lineLimit(1)
+                            }
+
+                            Spacer()
+
+                            Image(
+                                systemName:
+                                    "chevron.right"
+                            )
+                            .foregroundStyle(
+                                .secondary
+                            )
+                        }
+                        .padding()
+                    }
+                    .buttonStyle(.plain)
+                    .irCard(
+                        cornerRadius: 16
+                    )
+                }
+            }
+        }
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
+    }
+
+    private func reloadBrands() async {
+        await library.loadBrands(
+            category: category,
+            filter: source
+        )
+
+        if
+            !library.brands.isEmpty,
+            !library.brands.contains(brand)
+        {
+            brand = ""
+        }
+
+        if
+            !library.brands
+                .contains(
+                    where: {
+                        normalizedFirstLetter(
+                            $0
+                        ) == selectedLetter
+                    }
+                ),
+            let first =
+                library.brands.first
+        {
+            selectedLetter =
+                normalizedFirstLetter(
+                    first
+                )
+        }
+    }
+
+    private func runSearch() {
+        IRHaptics.tap()
+
+        Task {
+            await library.search(
+                brand: brand,
+                model: model,
+                category: category,
+                filter: source,
+                deep: deepSearch
+            )
+        }
+    }
+
+    private func normalizedFirstLetter(
+        _ value: String
+    ) -> String {
+        let folded =
+            value.folding(
+                options: [
+                    .diacriticInsensitive,
+                    .caseInsensitive,
+                ],
+                locale: .current
+            )
+            .uppercased()
+
+        guard
+            let first = folded.first
+        else {
+            return "#"
+        }
+
+        let letter =
+            String(first)
+
+        return alphabet.contains(letter)
+            ? letter
+            : "#"
     }
 }
 

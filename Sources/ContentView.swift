@@ -159,6 +159,7 @@ private struct ControlView: View {
                 }
                 .padding()
             }
+            .irOLEDScreen()
             .navigationTitle("IR Universal")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -655,7 +656,7 @@ private struct ManualCodeView: View {
                         .padding()
                     }
                     .buttonStyle(.plain)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                    .irCard(cornerRadius: 18)
 
                     TextField(
                         "Buscar marca, modelo o código",
@@ -929,6 +930,7 @@ private struct SavedDevicesView: View {
                 }
                 .padding()
             }
+            .irOLEDScreen()
             .navigationTitle("Mis equipos")
         }
     }
@@ -1009,7 +1011,7 @@ private struct DiagnosticsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                    .irCard(cornerRadius: 18)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Label(
@@ -1123,6 +1125,8 @@ private struct DiagnosticsView: View {
                         in: RoundedRectangle(cornerRadius: 18)
                     )
 
+                    OLEDSettingsCard()
+
                     BackupCenterView(
                         savedDevices: savedDevices,
                         learnedSignals: learnedSignals,
@@ -1134,6 +1138,7 @@ private struct DiagnosticsView: View {
                 }
                 .padding()
             }
+            .irOLEDScreen()
             .navigationTitle("Diagnóstico")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -1435,6 +1440,7 @@ private struct LearnIRView: View {
                 }
                 .padding()
             }
+            .irOLEDScreen()
             .navigationTitle("Aprender IR")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {

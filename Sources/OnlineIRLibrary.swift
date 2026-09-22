@@ -77,8 +77,96 @@ final class OnlineIRLibrary: ObservableObject {
     @Published private(set) var results: [OnlineIRRemote] = []
     @Published private(set) var status = "Busca por marca y, si lo conoces, por modelo."
     @Published private(set) var isSearching = false
+    @Published private(set) var brands: [String] = []
+    @Published private(set) var isLoadingBrands = false
+    @Published private(set) var brandStatus = "Cargando índice de marcas…"
 
     private var memoryCache: [String: Data] = [:]
+
+    func loadBrands(
+        category: IRDeviceCategory,
+        filter: OnlineIRSourceFilter
+    ) async {
+        isLoadingBrands = true
+        brandStatus = "Actualizando marcas…"
+
+        var found: [String] = []
+        var failures = 0
+
+        for source in filter.sources {
+            do {
+                switch source {
+                case .flipperCommunity:
+                    found += try await brandsFromGitHubTree(
+                        url: "https://api.github.com/repos/Lucaslhm/Flipper-IRDB/git/trees/main?recursive=1",
+                        source: source,
+                        category: category
+                    )
+
+                case .flipperOfficial:
+                    found += try await brandsFromGitHubTree(
+                        url: "https://api.github.com/repos/flipperdevices/IRDB/git/trees/dev?recursive=1",
+                        source: source,
+                        category: category
+                    )
+
+                case .legacyIRDB:
+                    found += try await brandsFromLegacy(
+                        category: category
+                    )
+                }
+            } catch {
+                failures += 1
+            }
+        }
+
+        var unique: [String: String] = [:]
+
+        for value in found {
+            let display =
+                value
+                .replacingOccurrences(
+                    of: "_",
+                    with: " "
+                )
+                .trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+
+            let key = clean(display)
+
+            guard
+                !key.isEmpty,
+                key != "unknown",
+                key != "desconocida"
+            else {
+                continue
+            }
+
+            if unique[key] == nil {
+                unique[key] = display
+            }
+        }
+
+        brands =
+            unique.values.sorted {
+                $0.localizedCaseInsensitiveCompare(
+                    $1
+                ) == .orderedAscending
+            }
+
+        isLoadingBrands = false
+
+        if brands.isEmpty {
+            brandStatus =
+                failures > 0
+                ? "No se pudo cargar el índice de marcas."
+                : "No hay marcas para esta categoría."
+        } else {
+            brandStatus =
+                "\(brands.count) marcas disponibles"
+        }
+    }
 
     func search(
         brand: String,
@@ -209,6 +297,130 @@ final class OnlineIRLibrary: ObservableObject {
             sourceDescription: "URL · \(url.host ?? "HTTPS")",
             signals: signals
         )
+    }
+
+    private func brandsFromGitHubTree(
+        url: String,
+        source: OnlineIRSource,
+        category: IRDeviceCategory
+    ) async throws -> [String] {
+        let data =
+            try await cached(
+                url,
+                maxBytes: 20_000_000
+            )
+
+        let tree =
+            try JSONDecoder().decode(
+                GitHubIRTree.self,
+                from: data
+            )
+
+        guard !tree.truncated else {
+            throw error(
+                "El índice de GitHub llegó incompleto."
+            )
+        }
+
+        return tree.tree.compactMap {
+            entry in
+
+            guard
+                entry.type == "blob",
+                entry.path
+                    .lowercased()
+                    .hasSuffix(".ir"),
+                categoryMatches(
+                    entry.path,
+                    category: category,
+                    source: source
+                )
+            else {
+                return nil
+            }
+
+            let pieces =
+                entry.path
+                    .split(separator: "/")
+                    .map(String.init)
+
+            let candidate =
+                guessBrand(
+                    pieces: pieces,
+                    source: source
+                )
+
+            return candidate.isEmpty
+                ? nil
+                : candidate
+        }
+    }
+
+    private func brandsFromLegacy(
+        category: IRDeviceCategory
+    ) async throws -> [String] {
+        let indexURL =
+            "https://cdn.jsdelivr.net/gh/probonopd/irdb@master/codes/index"
+
+        let data =
+            try await cached(
+                indexURL,
+                maxBytes: 8_000_000
+            )
+
+        guard
+            let text =
+                String(
+                    data: data,
+                    encoding: .utf8
+                )
+        else {
+            return []
+        }
+
+        return text
+            .components(
+                separatedBy: .newlines
+            )
+            .compactMap { line in
+                let path =
+                    line.trimmingCharacters(
+                        in:
+                            .whitespacesAndNewlines
+                    )
+
+                guard
+                    path.lowercased()
+                        .hasSuffix(".csv")
+                else {
+                    return nil
+                }
+
+                let parts =
+                    path
+                        .split(separator: "/")
+                        .map(String.init)
+
+                guard parts.count >= 3 else {
+                    return nil
+                }
+
+                let candidateBrand =
+                    parts[0]
+                let candidateModel =
+                    parts[1]
+
+                guard
+                    legacyCategoryMatches(
+                        candidateModel,
+                        category: category
+                    )
+                else {
+                    return nil
+                }
+
+                return candidateBrand
+            }
     }
 
     private func searchGitHubTree(
@@ -395,7 +607,7 @@ final class OnlineIRLibrary: ObservableObject {
     private func fetch(_ url: URL, maxBytes: Int) async throws -> Data {
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
-        request.setValue("IR-Universal/4.0 iOS", forHTTPHeaderField: "User-Agent")
+        request.setValue("IR-Universal/5.1 iOS", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw error(http.statusCode == 403 || http.statusCode == 429
