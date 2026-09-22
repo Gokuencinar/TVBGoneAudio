@@ -7,15 +7,15 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 22) {
+                VStack(spacing: 20) {
                     Image(systemName: "power.circle.fill")
-                        .font(.system(size: 86))
+                        .font(.system(size: 80))
                         .symbolRenderingMode(.hierarchical)
 
                     Text("TV-B-Gone Audio")
                         .font(.largeTitle.bold())
 
-                    Text("Envía secuencialmente códigos POWER mediante audio estéreo diferencial para adaptadores IR.")
+                    Text("Compatibilidad ampliada: prueba primero códigos universales comunes y después la base TV-B-Gone.")
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
 
@@ -32,7 +32,8 @@ struct ContentView: View {
                         if transmitter.sampleRate > 0 {
                             Label("\(Int(transmitter.sampleRate)) Hz", systemImage: "waveform")
                         }
-                        Label("Usa volumen multimedia al máximo y salida estéreo.", systemImage: "speaker.wave.3.fill")
+                        Label("Audio mono: DESACTIVADO", systemImage: "ear.and.waveform")
+                        Label("Balance: centrado · volumen multimedia: 100 %", systemImage: "speaker.wave.3.fill")
                     }
                     .font(.subheadline)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -40,10 +41,15 @@ struct ContentView: View {
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
 
                     if transmitter.isSending {
-                        VStack(spacing: 10) {
+                        VStack(spacing: 8) {
                             ProgressView(value: transmitter.progress)
                             Text("\(transmitter.sentCount) / \(transmitter.totalCount) códigos")
                                 .font(.caption.monospacedDigit())
+                            if transmitter.skippedCount > 0 {
+                                Text("\(transmitter.skippedCount) omitidos por portadora no representable")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
 
@@ -60,10 +66,22 @@ struct ContentView: View {
                         )
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, 15)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+
+                    Divider()
+
+                    Text("Diagnóstico")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button("Probar TD Systems / Vestel (RC5 0x100C)") {
+                        transmitter.testVestelTDSystems()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(transmitter.isSending)
 
                     Button("Probar portadora 38 kHz durante 1 s") {
                         transmitter.testCarrier()
@@ -78,7 +96,7 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Text("Consejo: apunta el emisor al televisor y mantenlo orientado mientras avanza la secuencia. Europa está seleccionada por defecto.")
+                    Text("Para el emisor estéreo, iOS debe tener Ajustes → Accesibilidad → Audio y visual → Audio mono desactivado. Apunta directamente al receptor IR del televisor durante la prueba.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
