@@ -98,6 +98,42 @@ final class CustomRemoteStore: ObservableObject {
         save()
     }
 
+    func createImported(
+        name: String,
+        category: IRDeviceCategory,
+        signals: [ImportedIRSignal]
+    ) {
+        let clean =
+            name.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+
+        guard !signals.isEmpty else {
+            return
+        }
+
+        let buttons =
+            signals.map {
+                CustomRemoteButton(
+                    name: $0.name,
+                    code: $0.code
+                )
+            }
+
+        remotes.append(
+            CustomRemote(
+                name:
+                    clean.isEmpty
+                    ? "Mando online"
+                    : clean,
+                category: category,
+                buttons: buttons
+            )
+        )
+
+        save()
+    }
+
     func remove(
         _ remote: CustomRemote
     ) {
