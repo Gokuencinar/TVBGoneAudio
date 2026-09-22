@@ -27,6 +27,8 @@ struct ContentView: View {
             ManualCodeView(
                 transmitter: transmitter,
                 savedDevices: savedDevices,
+                learnedSignals: learnedSignals,
+                customRemotes: customRemotes,
                 category: $category,
                 region: $region
             )
@@ -56,7 +58,8 @@ struct ContentView: View {
             }
 
             DiagnosticsView(
-                transmitter: transmitter
+                transmitter: transmitter,
+                learner: learner
             )
             .tabItem {
                 Label("Diagnóstico", systemImage: "waveform.path.ecg")
@@ -385,6 +388,8 @@ private struct ControlView: View {
 private struct ManualCodeView: View {
     @ObservedObject var transmitter: IRTransmitter
     @ObservedObject var savedDevices: SavedDeviceStore
+    @ObservedObject var learnedSignals: LearnedIRStore
+    @ObservedObject var customRemotes: CustomRemoteStore
 
     @Binding var category: IRDeviceCategory
     @Binding var region: TVRegion
@@ -425,6 +430,36 @@ private struct ManualCodeView: View {
                         }
                         .pickerStyle(.segmented)
                     }
+
+                    NavigationLink {
+                        OnlineIRLibraryView(
+                            transmitter: transmitter,
+                            learnedSignals: learnedSignals,
+                            customRemotes: customRemotes,
+                            category: $category
+                        )
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "globe")
+                                .font(.title2)
+                                .foregroundStyle(.red)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Biblioteca IR online")
+                                    .font(.headline)
+                                Text("Busca por marca/modelo, prueba códigos y descarga mandos")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                    }
+                    .buttonStyle(.plain)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
 
                     TextField(
                         "Buscar marca, modelo o código",
@@ -674,11 +709,76 @@ private struct SavedDevicesView: View {
 
 private struct DiagnosticsView: View {
     @ObservedObject var transmitter: IRTransmitter
+    @ObservedObject var learner: IRLearner
+
+    private var compatibilityConclusion: String {
+        if transmitter.outputRouteSuitableForIR && learner.isExternalInput {
+            return "Compatible a nivel de audio para transmitir y aprender. La app todavía no puede garantizar que el dispositivo externo sea físicamente un receptor IR hasta recibir una trama válida."
+        }
+
+        if transmitter.outputRouteSuitableForIR && !learner.isExternalInput {
+            return "Compatible para transmitir. No se detecta entrada externa: el aprendizaje IR no es compatible con el accesorio conectado."
+        }
+
+        if !transmitter.outputRouteSuitableForIR && learner.isExternalInput {
+            return "Se detecta entrada externa para aprendizaje, pero la salida no parece una ruta estéreo cableada apta para este emisor."
+        }
+
+        return "Pulsa «Comprobar accesorio». Para transmitir se necesita salida estéreo cableada; para aprender, una entrada externa real."
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Compatibilidad del accesorio", systemImage: "checkmark.shield")
+                            .font(.headline)
+
+                        HStack {
+                            Image(systemName: transmitter.outputRouteSuitableForIR ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(transmitter.outputRouteSuitableForIR ? .green : .orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Transmisión")
+                                    .font(.subheadline.bold())
+                                Text(transmitter.routeDescription)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+
+                        HStack {
+                            Image(systemName: learner.isExternalInput ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(learner.isExternalInput ? .green : .red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Aprendizaje")
+                                    .font(.subheadline.bold())
+                                Text(learner.inputDescription)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+
+                        Text(compatibilityConclusion)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Button {
+                            transmitter.inspectOutputRoute()
+                            learner.requestPermissionAndCheckInput()
+                        } label: {
+                            Label("COMPROBAR ACCESORIO", systemImage: "cable.connector")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+
                     VStack(alignment: .leading, spacing: 10) {
                         Label(
                             transmitter.routeDescription,
@@ -790,6 +890,8 @@ private struct DiagnosticsView: View {
                         .thinMaterial,
                         in: RoundedRectangle(cornerRadius: 18)
                     )
+
+                    AppIconPickerView()
                 }
                 .padding()
             }
@@ -799,7 +901,7 @@ private struct DiagnosticsView: View {
     }
 }
 
-private struct DeviceCategoryPicker: View {
+struct DeviceCategoryPicker: View {
     @Binding var category: IRDeviceCategory
     let disabled: Bool
 
@@ -1298,9 +1400,15 @@ private struct LearnIRView: View {
                 if learner.inputChannels > 0 {
                     Image(
                         systemName:
-                            "checkmark.circle.fill"
+                            learner.isExternalInput
+                            ? "checkmark.circle.fill"
+                            : "xmark.circle.fill"
                     )
-                    .foregroundStyle(.green)
+                    .foregroundStyle(
+                        learner.isExternalInput
+                        ? .green
+                        : .red
+                    )
                 }
             }
 
@@ -1308,6 +1416,22 @@ private struct LearnIRView: View {
                 learner.inputDescription
             )
             .font(.subheadline)
+
+            if learner.inputChannels > 0 && !learner.isExternalInput {
+                Label(
+                    "Entrada interna: este dispositivo no puede aprender IR",
+                    systemImage: "xmark.circle.fill"
+                )
+                .font(.caption.bold())
+                .foregroundStyle(.red)
+            } else if learner.isExternalInput {
+                Label(
+                    "Entrada externa detectada",
+                    systemImage: "checkmark.circle.fill"
+                )
+                .font(.caption.bold())
+                .foregroundStyle(.green)
+            }
 
             if learner.sampleRate > 0 {
                 Text(
@@ -1451,7 +1575,7 @@ private struct LearnIRView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .disabled(learner.isRecording)
+                .disabled(learner.isRecording || !learner.isExternalInput)
 
                 Button {
                     if learner.isRecording {
@@ -1481,6 +1605,7 @@ private struct LearnIRView: View {
                     ? .secondary
                     : .red
                 )
+                .disabled(!learner.isExternalInput && !learner.isRecording)
             }
         }
         .frame(
