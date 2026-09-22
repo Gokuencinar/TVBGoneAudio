@@ -1,0 +1,7 @@
+.DS_Store
+build/
+DerivedData/
+TVBGoneAudio.xcodeproj/
+Sources/GeneratedTVBGoneDatabase.swift
+Payload/
+*.ipa
