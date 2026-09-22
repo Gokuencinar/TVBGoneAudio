@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -64,6 +67,14 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             clean build
 
+      - name: Set CI build number
+        run: |
+          APP_PLIST="build/Build/Products/Release-iphoneos/TVBGoneAudio.app/Info.plist"
+          CI_BUILD=$((1000 + GITHUB_RUN_NUMBER))
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CI_BUILD" "$APP_PLIST"
+          echo "CI_BUILD=$CI_BUILD" >> "$GITHUB_ENV"
+          echo "MARKETING_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PLIST")" >> "$GITHUB_ENV"
+
       - name: Package IPA
         run: |
           rm -rf Payload TVBGoneAudio.ipa
@@ -81,3 +92,17 @@ jobs:
           path: TVBGoneAudio.ipa
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish TrollStore release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${MARKETING_VERSION}-b${CI_BUILD}"
+          TITLE="IR Universal ${MARKETING_VERSION} (${CI_BUILD})"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG"               TVBGoneAudio.ipa#IR-Universal.ipa               --clobber
+            gh release edit "$TAG"               --title "$TITLE"               --notes "Compilación automática de IR Universal para instalación mediante TrollStore."               --latest
+          else
+            gh release create "$TAG"               TVBGoneAudio.ipa#IR-Universal.ipa               --title "$TITLE"               --notes "Compilación automática de IR Universal para instalación mediante TrollStore."               --latest
+          fi

@@ -58,7 +58,17 @@ final class AppIconManager: ObservableObject {
         UIApplication.shared.setAlternateIconName(choice.alternateName) { [weak self] error in
             Task { @MainActor in
                 if let error {
-                    self?.status = "No se pudo cambiar el icono: \(error.localizedDescription)"
+                    let nsError = error as NSError
+
+                    if nsError.domain == NSOSStatusErrorDomain
+                        && nsError.code == -54
+                    {
+                        self?.status =
+                            "iOS ha bloqueado el cambio dinámico del icono (OSStatus -54). Esto puede ocurrir con apps instaladas mediante TrollStore. El resto de la app no está afectado."
+                    } else {
+                        self?.status =
+                            "No se pudo cambiar el icono: \(error.localizedDescription)"
+                    }
                 } else {
                     self?.selectedID = choice.id
                     self?.status = "Icono cambiado a «\(choice.title)»."

@@ -6,10 +6,12 @@ struct ContentView: View {
     @StateObject private var learnedSignals = LearnedIRStore()
     @StateObject private var learner = IRLearner()
     @StateObject private var customRemotes = CustomRemoteStore()
+    @StateObject private var updater = AppUpdater()
 
     @State private var category: IRDeviceCategory = .television
     @State private var region: TVRegion = .europe
     @State private var pace: ScanPace = .fast
+    @State private var showUpdateAlert = false
 
     var body: some View {
         TabView {
@@ -59,13 +61,36 @@ struct ContentView: View {
 
             DiagnosticsView(
                 transmitter: transmitter,
-                learner: learner
+                learner: learner,
+                updater: updater
             )
             .tabItem {
                 Label("Diagnóstico", systemImage: "waveform.path.ecg")
             }
         }
         .tint(.red)
+        .task {
+            await updater.checkForUpdates(silent: true)
+        }
+        .onChange(of: updater.updateAvailable) { available in
+            if available {
+                showUpdateAlert = true
+            }
+        }
+        .alert(
+            "Actualización disponible",
+            isPresented: $showUpdateAlert
+        ) {
+            Button("Actualizar con TrollStore") {
+                updater.installWithTrollStore()
+            }
+
+            Button("Más tarde", role: .cancel) {}
+        } message: {
+            Text(
+                "Está disponible IR Universal \(updater.availableVersionText). TrollStore descargará e instalará la nueva IPA."
+            )
+        }
     }
 }
 
@@ -710,6 +735,7 @@ private struct SavedDevicesView: View {
 private struct DiagnosticsView: View {
     @ObservedObject var transmitter: IRTransmitter
     @ObservedObject var learner: IRLearner
+    @ObservedObject var updater: AppUpdater
 
     private var compatibilityConclusion: String {
         if transmitter.outputRouteSuitableForIR && learner.isExternalInput {
@@ -890,6 +916,8 @@ private struct DiagnosticsView: View {
                         .thinMaterial,
                         in: RoundedRectangle(cornerRadius: 18)
                     )
+
+                    UpdateCenterView(updater: updater)
 
                     AppIconPickerView()
                 }
