@@ -595,19 +595,80 @@ private struct ManualCodeView: View {
     @State private var searchText = ""
     @State private var selectedCodeID = ""
     @State private var showSaveSheet = false
+    @State private var selectedBrowseLetter = "A"
+    @State private var selectedBrowseName = ""
 
-    private var filteredCodes: [IRCode] {
+    private let alphabet =
+        Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            .map(String.init)
+
+    private var sourceCodes: [IRCode] {
         IRCodeCatalog.filtered(
             category: category,
             region: region,
             source: source,
-            searchText: searchText
+            searchText: ""
         )
     }
 
+    private var browserNames: [String] {
+        var seen = Set<String>()
+
+        return sourceCodes
+            .map { browserName(for: $0) }
+            .filter { !$0.isEmpty }
+            .sorted {
+                $0.localizedCaseInsensitiveCompare($1)
+                    == .orderedAscending
+            }
+            .filter {
+                seen.insert(
+                    $0.folding(
+                        options: [
+                            .caseInsensitive,
+                            .diacriticInsensitive,
+                        ],
+                        locale: .current
+                    )
+                ).inserted
+            }
+    }
+
+    private var visibleBrowserNames: [String] {
+        browserNames.filter {
+            firstLetter(of: $0)
+                == selectedBrowseLetter
+        }
+    }
+
+    private var filteredCodes: [IRCode] {
+        let base =
+            IRCodeCatalog.filtered(
+                category: category,
+                region: region,
+                source: source,
+                searchText: searchText
+            )
+
+        guard
+            !selectedBrowseName.isEmpty
+        else {
+            return base
+        }
+
+        return base.filter {
+            browserName(for: $0)
+                .caseInsensitiveCompare(
+                    selectedBrowseName
+                ) == .orderedSame
+        }
+    }
+
     private var selectedCode: IRCode? {
-        filteredCodes.first { $0.id == selectedCodeID }
-            ?? filteredCodes.first
+        filteredCodes.first {
+            $0.id == selectedCodeID
+        }
+        ?? filteredCodes.first
     }
 
     var body: some View {
@@ -672,6 +733,8 @@ private struct ManualCodeView: View {
                     }
                     .pickerStyle(.segmented)
 
+                    localBrandBrowser
+
                     if filteredCodes.isEmpty {
                         EmptyStateView(
                             title: "Sin códigos",
@@ -703,10 +766,7 @@ private struct ManualCodeView: View {
                             .pickerStyle(.wheel)
                             .frame(height: 180)
                         }
-                        .background(
-                            .thinMaterial,
-                            in: RoundedRectangle(cornerRadius: 20)
-                        )
+                        .irCard(cornerRadius: 20)
 
                         if let code = selectedCode {
                             CodeDetailsCard(code: code)
@@ -737,12 +797,15 @@ private struct ManualCodeView: View {
                     normalizeSelection()
                 }
                 .onChange(of: category) { _ in
+                    selectedBrowseName = ""
                     normalizeSelection()
                 }
                 .onChange(of: region) { _ in
+                    selectedBrowseName = ""
                     normalizeSelection()
                 }
                 .onChange(of: source) { _ in
+                    selectedBrowseName = ""
                     normalizeSelection()
                 }
                 .onChange(of: searchText) { _ in
@@ -763,7 +826,338 @@ private struct ManualCodeView: View {
         }
     }
 
+    private var localBrandBrowser: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 12
+        ) {
+            HStack {
+                Label(
+                    "Índice A–Z",
+                    systemImage:
+                        "textformat.abc"
+                )
+                .font(.headline)
+
+                Spacer()
+
+                Text(
+                    "\(browserNames.count)"
+                )
+                .font(
+                    .caption
+                        .monospacedDigit()
+                )
+                .foregroundStyle(.secondary)
+            }
+
+            Text(
+                source == .tvBGone
+                ? "TV-B-Gone no incluye marca real en todos sus códigos; en esos casos se muestran los nombres disponibles."
+                : "Elige una letra y después una marca para filtrar la ruleta."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            if !browserNames.isEmpty {
+                HStack(
+                    alignment: .top,
+                    spacing: 10
+                ) {
+                    ScrollView {
+                        LazyVStack(
+                            spacing: 4
+                        ) {
+                            ForEach(
+                                alphabet,
+                                id: \.self
+                            ) { letter in
+                                let enabled =
+                                    browserNames
+                                        .contains {
+                                            firstLetter(
+                                                of: $0
+                                            ) == letter
+                                        }
+
+                                Button {
+                                    selectedBrowseLetter =
+                                        letter
+                                    IRHaptics.tap()
+                                } label: {
+                                    Text(letter)
+                                        .font(
+                                            .caption.bold()
+                                        )
+                                        .frame(
+                                            width: 34,
+                                            height: 30
+                                        )
+                                        .foregroundStyle(
+                                            selectedBrowseLetter
+                                                == letter
+                                            ? Color.white
+                                            : enabled
+                                                ? Color.red
+                                                : Color.secondary
+                                                    .opacity(
+                                                        0.35
+                                                    )
+                                        )
+                                        .background(
+                                            selectedBrowseLetter
+                                                == letter
+                                            ? Color.red
+                                            : Color.clear,
+                                            in:
+                                                RoundedRectangle(
+                                                    cornerRadius:
+                                                        8
+                                                )
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(!enabled)
+                            }
+                        }
+                    }
+                    .frame(
+                        width: 42,
+                        height: 250
+                    )
+
+                    Divider()
+
+                    ScrollView {
+                        LazyVStack(
+                            alignment: .leading,
+                            spacing: 4
+                        ) {
+                            ForEach(
+                                visibleBrowserNames,
+                                id: \.self
+                            ) { name in
+                                Button {
+                                    selectedBrowseName =
+                                        selectedBrowseName
+                                            == name
+                                        ? ""
+                                        : name
+
+                                    searchText = ""
+                                    normalizeSelection()
+                                    IRHaptics.tap()
+                                } label: {
+                                    HStack {
+                                        Text(name)
+                                            .font(
+                                                .subheadline
+                                            )
+                                            .foregroundStyle(
+                                                .primary
+                                            )
+                                            .multilineTextAlignment(
+                                                .leading
+                                            )
+
+                                        Spacer()
+
+                                        if selectedBrowseName
+                                            == name
+                                        {
+                                            Image(
+                                                systemName:
+                                                    "checkmark.circle.fill"
+                                            )
+                                            .foregroundStyle(
+                                                .red
+                                            )
+                                        } else {
+                                            Image(
+                                                systemName:
+                                                    "chevron.right"
+                                            )
+                                            .font(
+                                                .caption2
+                                            )
+                                            .foregroundStyle(
+                                                .secondary
+                                            )
+                                        }
+                                    }
+                                    .padding(
+                                        .horizontal,
+                                        10
+                                    )
+                                    .padding(
+                                        .vertical,
+                                        9
+                                    )
+                                    .background(
+                                        selectedBrowseName
+                                            == name
+                                        ? Color.red
+                                            .opacity(
+                                                0.12
+                                            )
+                                        : Color.clear,
+                                        in:
+                                            RoundedRectangle(
+                                                cornerRadius:
+                                                    10
+                                            )
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .frame(height: 250)
+                }
+
+                if !selectedBrowseName.isEmpty {
+                    HStack {
+                        Label(
+                            selectedBrowseName,
+                            systemImage:
+                                "line.3.horizontal.decrease.circle.fill"
+                        )
+                        .font(.caption.bold())
+                        .foregroundStyle(.red)
+
+                        Spacer()
+
+                        Button(
+                            "Quitar filtro"
+                        ) {
+                            selectedBrowseName =
+                                ""
+                            normalizeSelection()
+                            IRHaptics.tap()
+                        }
+                        .font(.caption)
+                    }
+                    .padding(.top, 2)
+                }
+            } else {
+                Text(
+                    "No hay nombres disponibles para este filtro."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(
+                    maxWidth: .infinity
+                )
+                .padding(.vertical, 24)
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 20)
+    }
+
+    private func browserName(
+        for code: IRCode
+    ) -> String {
+        let brand =
+            code.brandHint
+                .trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+
+        if
+            !brand.isEmpty,
+            brand
+                .caseInsensitiveCompare(
+                    code.sourceLabel
+                ) != .orderedSame
+        {
+            return brand
+        }
+
+        var fallback =
+            code.displayName
+
+        if
+            fallback
+                .lowercased()
+                .hasPrefix(
+                    "tv-b-gone · "
+                )
+        {
+            fallback =
+                String(
+                    fallback.dropFirst(
+                        "TV-B-Gone · ".count
+                    )
+                )
+        }
+
+        return fallback
+            .trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+    }
+
+    private func firstLetter(
+        of value: String
+    ) -> String {
+        let folded =
+            value.folding(
+                options: [
+                    .diacriticInsensitive,
+                    .caseInsensitive,
+                ],
+                locale: .current
+            )
+            .uppercased()
+
+        guard
+            let first =
+                folded.first
+        else {
+            return "#"
+        }
+
+        let letter =
+            String(first)
+
+        return alphabet.contains(letter)
+            ? letter
+            : "#"
+    }
+
+    private func normalizeBrowser() {
+        if
+            !selectedBrowseName.isEmpty,
+            !browserNames.contains(
+                where: {
+                    $0.caseInsensitiveCompare(
+                        selectedBrowseName
+                    ) == .orderedSame
+                }
+            )
+        {
+            selectedBrowseName = ""
+        }
+
+        if
+            !browserNames.contains(
+                where: {
+                    firstLetter(of: $0)
+                        == selectedBrowseLetter
+                }
+            ),
+            let first =
+                browserNames.first
+        {
+            selectedBrowseLetter =
+                firstLetter(of: first)
+        }
+    }
+
     private func normalizeSelection() {
+        normalizeBrowser()
+
         let codes = filteredCodes
         guard let first = codes.first else {
             selectedCodeID = ""
