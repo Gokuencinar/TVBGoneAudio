@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 struct ContentView: View {
@@ -7,17 +8,23 @@ struct ContentView: View {
     @StateObject private var learner = IRLearner()
     @StateObject private var customRemotes = CustomRemoteStore()
     @StateObject private var updater = AppUpdater()
+    @StateObject private var workedHistory = WorkedCodeHistoryStore()
+
+    @AppStorage("irUniversal.onboardingVersion")
+    private var onboardingVersion = 0
 
     @State private var category: IRDeviceCategory = .television
     @State private var region: TVRegion = .europe
     @State private var pace: ScanPace = .fast
     @State private var showUpdateAlert = false
+    @State private var showOnboarding = false
 
     var body: some View {
         TabView {
             ControlView(
                 transmitter: transmitter,
                 savedDevices: savedDevices,
+                history: workedHistory,
                 category: $category,
                 region: $region,
                 pace: $pace
@@ -41,7 +48,8 @@ struct ContentView: View {
             SavedDevicesView(
                 transmitter: transmitter,
                 savedDevices: savedDevices,
-                customRemotes: customRemotes
+                customRemotes: customRemotes,
+                history: workedHistory
             )
             .tabItem {
                 Label("Mis equipos", systemImage: "star.fill")
@@ -62,7 +70,11 @@ struct ContentView: View {
             DiagnosticsView(
                 transmitter: transmitter,
                 learner: learner,
-                updater: updater
+                updater: updater,
+                savedDevices: savedDevices,
+                learnedSignals: learnedSignals,
+                customRemotes: customRemotes,
+                history: workedHistory
             )
             .tabItem {
                 Label("Diagnóstico", systemImage: "waveform.path.ecg")
@@ -91,12 +103,28 @@ struct ContentView: View {
                 "Está disponible IR Universal \(updater.availableVersionText). TrollStore descargará e instalará la nueva IPA."
             )
         }
+        .onAppear {
+            transmitter.inspectOutputRoute()
+
+            if onboardingVersion < 5 {
+                showOnboarding = true
+            }
+        }
+        .fullScreenCover(
+            isPresented: $showOnboarding
+        ) {
+            IRWelcomeView {
+                onboardingVersion = 5
+                showOnboarding = false
+            }
+        }
     }
 }
 
 private struct ControlView: View {
     @ObservedObject var transmitter: IRTransmitter
     @ObservedObject var savedDevices: SavedDeviceStore
+    @ObservedObject var history: WorkedCodeHistoryStore
 
     @Binding var category: IRDeviceCategory
     @Binding var region: TVRegion
@@ -110,6 +138,9 @@ private struct ControlView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     hero
+                    statusCard
+                    quickDevices
+                    recentWorkedCard
 
                     DeviceCategoryPicker(
                         category: $category,
@@ -120,20 +151,19 @@ private struct ControlView: View {
                         regionPicker
                     }
 
-                    quickDevices
-
                     scanCard
 
                     if transmitter.isScanning {
                         activeScanCard
                     }
-
-                    statusCard
                 }
                 .padding()
             }
             .navigationTitle("IR Universal")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                transmitter.inspectOutputRoute()
+            }
             .sheet(isPresented: $showWorkedSheet) {
                 WorkedSheet(
                     candidates: workedCandidates,
@@ -145,15 +175,50 @@ private struct ControlView: View {
     }
 
     private var hero: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             ZStack {
+                IRTransmissionHalo(
+                    trigger: transmitter.transmissionPulse
+                )
+                .frame(width: 150, height: 150)
+
                 Circle()
-                    .fill(.red.opacity(0.12))
-                    .frame(width: 96, height: 96)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .red.opacity(0.20),
+                                .orange.opacity(0.08),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 104, height: 104)
 
                 Image(systemName: category.systemImage)
-                    .font(.system(size: 42, weight: .semibold))
+                    .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(.red)
+            }
+
+            if transmitter.isScanning {
+                Label(
+                    "BARRIENDO CÓDIGOS",
+                    systemImage: "dot.radiowaves.left.and.right"
+                )
+                .font(.caption.bold())
+                .foregroundStyle(.red)
+            } else if transmitter.isPreviewing {
+                Label(
+                    "TRANSMITIENDO",
+                    systemImage: "wave.3.right"
+                )
+                .font(.caption.bold())
+                .foregroundStyle(.red)
+            } else {
+                Text("IR UNIVERSAL")
+                    .font(.caption.bold())
+                    .tracking(1.8)
+                    .foregroundStyle(.secondary)
             }
 
             Text(category.title)
@@ -165,6 +230,7 @@ private struct ControlView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
     }
 
     private var regionPicker: some View {
@@ -223,6 +289,77 @@ private struct ControlView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var recentWorkedCard: some View {
+        if let record = history.records.first {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label(
+                        "Último código que funcionó",
+                        systemImage: "checkmark.seal.fill"
+                    )
+                    .font(.headline)
+
+                    Spacer()
+
+                    Text(
+                        record.createdAt.formatted(
+                            date: .omitted,
+                            time: .shortened
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(record.codeLabel)
+                            .font(.subheadline.bold())
+                            .lineLimit(2)
+
+                        Text(
+                            "\(record.sourceLabel) · \(record.carrierHz) Hz"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        transmitter.send(code: record.code)
+                    } label: {
+                        Image(systemName: "power")
+                            .font(.headline)
+                            .frame(width: 42, height: 42)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+            }
+            .padding()
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color.green.opacity(0.12),
+                        Color.clear,
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(
+                        Color.green.opacity(0.22),
+                        lineWidth: 1
+                    )
+            )
         }
     }
 
@@ -306,14 +443,41 @@ private struct ControlView: View {
             }
 
             if let codeName = transmitter.currentCodeName {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Código actual")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Código actual")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        if transmitter.currentCarrierHz > 0 {
+                            Text(
+                                "\(transmitter.currentCarrierHz / 1000) kHz"
+                            )
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        }
+                    }
 
                     Text(codeName)
                         .font(.subheadline.monospaced())
                         .lineLimit(2)
+
+                    HStack {
+                        Label(
+                            "~\(estimatedRemainingText)",
+                            systemImage: "clock"
+                        )
+
+                        Spacer()
+
+                        Text(
+                            "\(Int((transmitter.progress * 100).rounded())) %"
+                        )
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             }
 
@@ -356,6 +520,13 @@ private struct ControlView: View {
                 workedCandidates =
                     transmitter.markWorked()
 
+                if let best = workedCandidates.first {
+                    history.add(
+                        code: best,
+                        category: category
+                    )
+                }
+
                 if !workedCandidates.isEmpty {
                     showWorkedSheet = true
                 }
@@ -375,37 +546,37 @@ private struct ControlView: View {
         )
     }
 
-    private var statusCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(
-                transmitter.routeDescription,
-                systemImage: "cable.connector"
+    private var estimatedRemainingText: String {
+        let remaining =
+            max(
+                0,
+                transmitter.totalCount
+                    - transmitter.sentCount
             )
 
-            if transmitter.sampleRate > 0 {
-                Label(
-                    "\(Int(transmitter.sampleRate)) Hz · \(transmitter.outputChannels) canales",
-                    systemImage: "waveform"
+        let seconds =
+            Int(
+                ceil(
+                    Double(remaining)
+                    * (pace.gapSeconds + 0.12)
                 )
-            }
-
-            Label(
-                "Audio mono DESACTIVADO · balance centrado",
-                systemImage: "ear.and.waveform"
             )
 
-            if let warning = transmitter.warning {
-                Text(warning)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
+        if seconds < 60 {
+            return "\(seconds) s"
         }
-        .font(.subheadline)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(cornerRadius: 16)
+
+        let minutes = seconds / 60
+        let rest = seconds % 60
+
+        return rest == 0
+            ? "\(minutes) min"
+            : "\(minutes) min \(rest) s"
+    }
+
+    private var statusCard: some View {
+        AccessoryStatusCard(
+            transmitter: transmitter
         )
     }
 }
@@ -608,121 +779,152 @@ private struct SavedDevicesView: View {
     @ObservedObject var transmitter: IRTransmitter
     @ObservedObject var savedDevices: SavedDeviceStore
     @ObservedObject var customRemotes: CustomRemoteStore
+    @ObservedObject var history: WorkedCodeHistoryStore
+
+    private let columns = [
+        GridItem(.flexible()),
+        GridItem(.flexible()),
+    ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 22) {
+                    HStack(spacing: 10) {
+                        LibraryMetricCard(
+                            value: savedDevices.devices.count,
+                            label: "Equipos",
+                            systemImage: "tv"
+                        )
+
+                        LibraryMetricCard(
+                            value: customRemotes.remotes.count,
+                            label: "Mandos",
+                            systemImage: "remote.fill"
+                        )
+
+                        LibraryMetricCard(
+                            value: history.records.count,
+                            label: "Funcionaron",
+                            systemImage: "checkmark.seal.fill"
+                        )
+                    }
+
                     if !customRemotes.remotes.isEmpty {
-                        VStack(
-                            alignment: .leading,
-                            spacing: 10
-                        ) {
-                            Text("Mandos personalizados")
-                                .font(.headline)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label(
+                                "Mis mandos",
+                                systemImage: "remote.fill"
+                            )
+                            .font(.title3.bold())
 
-                            ForEach(
-                                customRemotes.remotes
-                            ) { remote in
-                                NavigationLink {
-                                    CustomRemoteView(
-                                        remote: remote,
-                                        transmitter:
-                                            transmitter
-                                    )
-                                } label: {
-                                    HStack {
-                                        Image(
-                                            systemName:
-                                                "remote.fill"
-                                        )
-                                        .foregroundStyle(.red)
-
-                                        VStack(
-                                            alignment: .leading,
-                                            spacing: 2
-                                        ) {
-                                            Text(remote.name)
-                                                .font(.headline)
-
-                                            Text(
-                                                "\(remote.buttons.count) botones · \(remote.category.title)"
-                                            )
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        }
-
-                                        Spacer()
-
-                                        Image(
-                                            systemName:
-                                                "chevron.right"
-                                        )
-                                        .foregroundStyle(.secondary)
-                                    }
-                                    .padding()
-                                }
-                                .buttonStyle(.plain)
-                                .background(
-                                    .thinMaterial,
-                                    in: RoundedRectangle(
-                                        cornerRadius: 18
-                                    )
-                                )
-                                .contextMenu {
-                                    Button(
-                                        role: .destructive
-                                    ) {
-                                        customRemotes.remove(
-                                            remote
+                            LazyVGrid(
+                                columns: columns,
+                                spacing: 12
+                            ) {
+                                ForEach(customRemotes.remotes) { remote in
+                                    NavigationLink {
+                                        CustomRemoteView(
+                                            remote: remote,
+                                            transmitter: transmitter
                                         )
                                     } label: {
-                                        Label(
-                                            "Eliminar mando",
-                                            systemImage:
-                                                "trash"
+                                        PremiumRemoteTile(
+                                            remote: remote
                                         )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contextMenu {
+                                        Button(
+                                            role: .destructive
+                                        ) {
+                                            customRemotes.remove(
+                                                remote
+                                            )
+                                        } label: {
+                                            Label(
+                                                "Eliminar mando",
+                                                systemImage: "trash"
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
                     }
 
                     if !savedDevices.devices.isEmpty {
-                        VStack(
-                            alignment: .leading,
-                            spacing: 10
-                        ) {
-                            Text("Accesos rápidos")
-                                .font(.headline)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label(
+                                "Acceso rápido",
+                                systemImage: "bolt.fill"
+                            )
+                            .font(.title3.bold())
 
-                            ForEach(
-                                savedDevices.devices
-                            ) { device in
-                                SavedDeviceCard(
+                            ForEach(savedDevices.devices) { device in
+                                PremiumSavedDeviceCard(
                                     device: device,
-                                    transmitter:
-                                        transmitter,
-                                    savedDevices:
-                                        savedDevices
+                                    transmitter: transmitter,
+                                    savedDevices: savedDevices
                                 )
                             }
                         }
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
+                    }
+
+                    if !history.records.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Label(
+                                    "Historial de aciertos",
+                                    systemImage: "clock.arrow.circlepath"
+                                )
+                                .font(.title3.bold())
+
+                                Spacer()
+
+                                Button("Borrar") {
+                                    history.clear()
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                            }
+
+                            ForEach(
+                                Array(history.records.prefix(8))
+                            ) { record in
+                                WorkedCodeRow(
+                                    record: record,
+                                    transmitter: transmitter,
+                                    history: history
+                                )
+                            }
+                        }
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
                     }
 
                     if
                         savedDevices.devices.isEmpty
                         && customRemotes.remotes.isEmpty
+                        && history.records.isEmpty
                     {
                         EmptyStateView(
-                            title:
-                                "Todavía no hay equipos guardados",
-                            systemImage:
-                                "remote",
+                            title: "Tu biblioteca está vacía",
+                            systemImage: "remote",
                             message:
-                                "Guarda un código que funcione o crea un mando con varios botones aprendidos."
+                                "Cuando encuentres un código que funcione, aparecerá aquí para que puedas volver a usarlo en segundos."
                         )
-                        .padding(.top, 80)
+                        .padding(.top, 60)
                     }
                 }
                 .padding()
@@ -736,6 +938,10 @@ private struct DiagnosticsView: View {
     @ObservedObject var transmitter: IRTransmitter
     @ObservedObject var learner: IRLearner
     @ObservedObject var updater: AppUpdater
+    @ObservedObject var savedDevices: SavedDeviceStore
+    @ObservedObject var learnedSignals: LearnedIRStore
+    @ObservedObject var customRemotes: CustomRemoteStore
+    @ObservedObject var history: WorkedCodeHistoryStore
 
     private var compatibilityConclusion: String {
         if transmitter.outputRouteSuitableForIR && learner.isExternalInput {
@@ -915,6 +1121,13 @@ private struct DiagnosticsView: View {
                     .background(
                         .thinMaterial,
                         in: RoundedRectangle(cornerRadius: 18)
+                    )
+
+                    BackupCenterView(
+                        savedDevices: savedDevices,
+                        learnedSignals: learnedSignals,
+                        customRemotes: customRemotes,
+                        history: history
                     )
 
                     UpdateCenterView(updater: updater)

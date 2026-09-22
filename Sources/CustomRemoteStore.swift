@@ -96,6 +96,7 @@ final class CustomRemoteStore: ObservableObject {
         )
 
         save()
+        IRHaptics.success()
     }
 
     func createImported(
@@ -131,6 +132,14 @@ final class CustomRemoteStore: ObservableObject {
             )
         )
 
+        save()
+        IRHaptics.success()
+    }
+
+    func replaceAll(
+        _ newRemotes: [CustomRemote]
+    ) {
+        remotes = newRemotes
         save()
     }
 

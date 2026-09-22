@@ -20,6 +20,9 @@ final class IRTransmitter: ObservableObject {
     @Published private(set) var currentCodeID: String?
     @Published private(set) var currentCodeName: String?
     @Published private(set) var recentCodeIDs: [String] = []
+    @Published private(set) var transmissionPulse = 0
+    @Published private(set) var currentCarrierHz = 0
+    @Published private(set) var outputVolume: Float = 0
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
@@ -80,6 +83,7 @@ final class IRTransmitter: ObservableObject {
             isScanning = true
             isPaused = false
             warning = audioWarning(for: format.sampleRate)
+            IRHaptics.medium()
 
             let token = UUID()
             sessionToken = token
@@ -170,12 +174,16 @@ final class IRTransmitter: ObservableObject {
         if isScanning && !isPaused {
             pause()
         }
+
+        IRHaptics.success()
         return candidateCodes()
     }
 
     func send(
         code: IRCode
     ) {
+        IRHaptics.transmit()
+
         preview(
             code: code,
             preserveScan: false
@@ -195,6 +203,8 @@ final class IRTransmitter: ObservableObject {
     func testCarrier(
         hz: Int
     ) {
+        IRHaptics.transmit()
+
         let code = IRCode(
             id: "test-\(hz)",
             carrierHz: hz,
@@ -224,6 +234,7 @@ final class IRTransmitter: ObservableObject {
         isPreviewing = false
         currentCodeID = nil
         currentCodeName = nil
+        currentCarrierHz = 0
 
         if resetProgress {
             progress = 0
@@ -264,6 +275,10 @@ final class IRTransmitter: ObservableObject {
             warning = audioWarning(for: format.sampleRate)
             currentCodeID = code.id
             currentCodeName = code.displayName
+            currentCarrierHz =
+                code.carrierHz == 0
+                ? 38_000
+                : code.carrierHz
             remember(code)
 
             if !preserveScan {
@@ -278,6 +293,7 @@ final class IRTransmitter: ObservableObject {
 
             let token = UUID()
             sessionToken = token
+            transmissionPulse += 1
 
             player.scheduleBuffer(
                 buffer,
@@ -334,6 +350,7 @@ final class IRTransmitter: ObservableObject {
         try session.setActive(true)
 
         sampleRate = session.sampleRate
+        outputVolume = session.outputVolume
 
         let output = session.currentRoute.outputs.first
         let channels = output?.channels?.count ?? 0
@@ -409,8 +426,16 @@ final class IRTransmitter: ObservableObject {
 
     private func audioWarning(
         for rate: Double
-    ) -> String {
-        "Salida \(Int(rate)) Hz · Audio mono DESACTIVADO · balance centrado · volumen 100 %."
+    ) -> String? {
+        if !outputRouteSuitableForIR {
+            return "La salida actual no parece un emisor estéreo cableado compatible."
+        }
+
+        if outputVolume < 0.90 {
+            return "Sube el volumen multimedia al 100 % para obtener el máximo alcance IR."
+        }
+
+        return nil
     }
 
     private func carrierIsRepresentable(
@@ -449,6 +474,10 @@ final class IRTransmitter: ObservableObject {
 
         currentCodeID = code.id
         currentCodeName = code.displayName
+        currentCarrierHz =
+            code.carrierHz == 0
+            ? 38_000
+            : code.carrierHz
 
         if !carrierIsRepresentable(
             code.carrierHz,
@@ -469,6 +498,8 @@ final class IRTransmitter: ObservableObject {
             format: format,
             gapSeconds: currentPace.gapSeconds
         )
+
+        transmissionPulse += 1
 
         player.scheduleBuffer(
             buffer,
@@ -523,6 +554,7 @@ final class IRTransmitter: ObservableObject {
         sentCount = totalCount
         currentCodeID = nil
         currentCodeName = nil
+        currentCarrierHz = 0
 
         player.stop()
         if engine.isRunning {

@@ -109,6 +109,14 @@ final class SavedDeviceStore: ObservableObject {
         }
 
         save()
+        IRHaptics.success()
+    }
+
+    func replaceAll(
+        _ newDevices: [SavedIRDevice]
+    ) {
+        devices = newDevices
+        save()
     }
 
     func remove(

@@ -79,6 +79,7 @@ final class LearnedIRStore: ObservableObject {
         )
 
         save()
+        IRHaptics.success()
     }
 
 
@@ -108,6 +109,14 @@ final class LearnedIRStore: ObservableObject {
             at: 0
         )
 
+        save()
+        IRHaptics.success()
+    }
+
+    func replaceAll(
+        _ newSignals: [LearnedIRSignal]
+    ) {
+        signals = newSignals
         save()
     }
 
