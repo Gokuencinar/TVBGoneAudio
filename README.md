@@ -1,53 +1,44 @@
 # TVBGoneAudio
 
-Aplicación iOS para usar un adaptador IR conectado como salida de audio estéreo (incluidos adaptadores Lightning que se presentan al sistema como audio) con comportamiento tipo **TV-B-Gone**.
+iOS infrared transmitter for stereo audio IR dongles.
 
-## Objetivo de hardware
+## Device sections
 
-- iPhone XS
-- iOS 16.3
-- TrollStore 2
-- Emisor IR que funcione mediante audio estéreo diferencial
-- Volumen multimedia alto/máximo
+The app now has three independent power-off scans:
 
-## Cómo funciona
+- **TV**: the existing universal front-set + the original TV-B-Gone regional
+  database + additional modern TV POWER/OFF signals from Flipper-IRDB.
+- **Aire**: POWER/OFF signals from air-conditioner remotes.
+- **Proyector**: POWER/OFF signals from projector remotes.
 
-La señal IR se sintetiza en PCM estéreo. Durante cada tramo `MARK`, el canal derecho es la fase inversa del izquierdo. La frecuencia de audio es la mitad de la portadora IR deseada; con un adaptador de dos LED IR en antiparalelo/rectificación, ambos semiciclos producen la portadora completa.
+The TV ordering intentionally keeps the original working sequence first so
+devices that already responded to the previous version should respond at the
+same point in the scan.
 
-La app solicita 96 kHz al sistema para representar mejor las portadoras altas de la base TV-B-Gone. Si el adaptador Lightning solo negocia 48 kHz, las portadoras que excedan el ancho de banda se limitan al máximo reproducible.
+## Audio IR
 
-Los códigos cuya fuente original usa salida IR no modulada (`carrier = 0`) se transmiten a 38 kHz, ya que una ruta de audio acoplada en AC no puede mantener una componente DC útil.
+The output is stereo, with the right channel inverted relative to the left.
+For opposed-LED audio IR adapters the generated audio tone is half the desired
+IR carrier. Each MARK burst restarts at phase zero.
 
-## Base de códigos
+On the iPhone:
 
-El workflow descarga `WORLD_IR_CODES.h` de `shirriff/Arduino-TV-B-Gone` y lo convierte a Swift antes de compilar:
+- Media volume: 100%
+- Settings > Accessibility > Audio/Visual > Mono Audio: OFF
+- Balance: centered
 
-- 137 códigos en la lista NA
-- 145 códigos en la lista EU
+The app requests 96 kHz output but uses the actual rate negotiated by the
+Lightning audio path. Codes whose carrier cannot be represented safely are
+skipped rather than transmitted at an incorrect frequency.
 
-La región **Europa** está seleccionada por defecto.
+## Building
 
-## Compilar una IPA para TrollStore
+GitHub Actions:
 
-La acción de GitHub `Build unsigned IPA`:
+1. downloads/generates the original TV-B-Gone database;
+2. fetches the pinned Flipper-IRDB TV/AC/projector folders;
+3. generates `GeneratedFlipperPowerDatabase.swift`;
+4. builds an unsigned iPhone app;
+5. packages `TVBGoneAudio.ipa` as an Actions artifact.
 
-1. descarga y convierte la base TV-B-Gone;
-2. genera el proyecto con XcodeGen;
-3. compila para `iphoneos` con `CODE_SIGNING_ALLOWED=NO`;
-4. empaqueta `Payload/TVBGoneAudio.app` como `TVBGoneAudio.ipa`;
-5. sube la IPA como artefacto.
-
-TrollStore puede instalar IPAs y volver a firmar la aplicación al instalarla.
-
-## Prueba inicial
-
-1. Conecta el emisor IR Lightning.
-2. Sube el volumen multimedia al máximo.
-3. Abre la app.
-4. Comprueba que la ruta mostrada corresponde al accesorio y que indica dos canales si el dispositivo los expone.
-5. Pulsa **Probar portadora 38 kHz durante 1 s**.
-6. Si el hardware responde correctamente, usa **APAGAR TELEVISORES** apuntando al televisor durante toda la secuencia.
-
-## Licencia y atribución
-
-El código de esta aplicación es original de este proyecto. La base de códigos se deriva del proyecto Arduino-TV-B-Gone, que atribuye los datos/firmware originales a Mitch Altman y Limor Fried y los distribuye bajo Creative Commons Attribution-ShareAlike 2.5. Consulta `THIRD_PARTY.md`.
+See `THIRD_PARTY.md` for database attribution and licensing.
