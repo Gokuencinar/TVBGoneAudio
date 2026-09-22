@@ -1,0 +1,56 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate TV-B-Gone database
+        run: |
+          curl -L --fail \
+            https://raw.githubusercontent.com/shirriff/Arduino-TV-B-Gone/master/WORLD_IR_CODES.h \
+            -o /tmp/WORLD_IR_CODES.h
+          python3 scripts/generate_database.py /tmp/WORLD_IR_CODES.h Sources/GeneratedTVBGoneDatabase.swift
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build for iPhone without signing
+        run: |
+          xcodebuild \
+            -project TVBGoneAudio.xcodeproj \
+            -scheme TVBGoneAudio \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            clean build
+
+      - name: Package IPA
+        run: |
+          rm -rf Payload TVBGoneAudio.ipa
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/TVBGoneAudio.app Payload/
+          zip -qry TVBGoneAudio.ipa Payload
+          unzip -l TVBGoneAudio.ipa | head -40
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: TVBGoneAudio-unsigned-IPA
+          path: TVBGoneAudio.ipa
+          if-no-files-found: error
+          retention-days: 30
