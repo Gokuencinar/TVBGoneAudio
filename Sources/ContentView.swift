@@ -814,137 +814,16 @@ private struct ManualCodeView: View {
 
     @ViewBuilder
     private var codeSelector: some View {
-        if filteredCodes.isEmpty {
-            EmptyStateView(
-                title: "Sin códigos",
-                systemImage:
-                    "magnifyingglass",
-                message:
-                    "Prueba con otra búsqueda u otro origen."
-            )
-        } else {
-            if localBrowserPresentation
-                .wrappedValue == .list
-            {
-                VStack(
-                    alignment: .leading,
-                    spacing: 10
-                ) {
-                    HStack {
-                        Label(
-                            "Códigos",
-                            systemImage:
-                                "list.bullet"
-                        )
-                        .font(.headline)
-
-                        Spacer()
-
-                        Text(
-                            "\(filteredCodes.count)"
-                        )
-                        .font(
-                            .caption
-                                .monospacedDigit()
-                        )
-                        .foregroundStyle(
-                            .secondary
-                        )
-                    }
-
-                    ScrollView {
-                        LazyVStack(
-                            spacing: 6
-                        ) {
-                            ForEach(
-                                filteredCodes
-                            ) { code in
-                                Button {
-                                    selectedCodeID =
-                                        code.id
-                                    IRHaptics.tap()
-                                } label: {
-                                    HStack(
-                                        spacing: 10
-                                    ) {
-                                        VStack(
-                                            alignment:
-                                                .leading,
-                                            spacing: 3
-                                        ) {
-                                            Text(
-                                                code.displayName
-                                            )
-                                            .font(
-                                                .subheadline
-                                                    .bold()
-                                            )
-                                            .foregroundStyle(
-                                                .primary
-                                            )
-                                            .lineLimit(2)
-
-                                            Text(
-                                                "\(code.sourceLabel) · \((code.carrierHz == 0 ? 38_000 : code.carrierHz) / 1000) kHz"
-                                            )
-                                            .font(
-                                                .caption2
-                                            )
-                                            .foregroundStyle(
-                                                .secondary
-                                            )
-                                        }
-
-                                        Spacer()
-
-                                        Image(
-                                            systemName:
-                                                selectedCode?.id
-                                                    == code.id
-                                                ? "checkmark.circle.fill"
-                                                : "chevron.right"
-                                        )
-                                        .foregroundStyle(
-                                            selectedCode?.id
-                                                == code.id
-                                            ? Color.red
-                                            : Color.secondary
-                                        )
-                                    }
-                                    .padding(
-                                        .horizontal,
-                                        10
-                                    )
-                                    .padding(
-                                        .vertical,
-                                        9
-                                    )
-                                    .background(
-                                        selectedCode?.id
-                                            == code.id
-                                        ? Color.red
-                                            .opacity(
-                                                0.12
-                                            )
-                                        : Color.clear,
-                                        in:
-                                            RoundedRectangle(
-                                                cornerRadius:
-                                                    11
-                                            )
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .frame(
-                        maxHeight: 320
-                    )
-                }
-                .padding()
-                .irCard(
-                    cornerRadius: 20
+        if localBrowserPresentation
+            .wrappedValue == .wheel
+        {
+            if filteredCodes.isEmpty {
+                EmptyStateView(
+                    title: "Sin códigos",
+                    systemImage:
+                        "magnifyingglass",
+                    message:
+                        "Prueba con otra búsqueda u otro origen."
                 )
             } else {
                 VStack(spacing: 0) {
@@ -985,51 +864,60 @@ private struct ManualCodeView: View {
                 .irCard(
                     cornerRadius: 20
                 )
+
+                selectedCodeActions
             }
+        } else if !selectedBrowseName.isEmpty {
+            selectedCodeActions
+        }
+    }
 
-            if let code =
-                selectedCode
-            {
-                CodeDetailsCard(
-                    code: code
-                )
+    @ViewBuilder
+    private var selectedCodeActions:
+        some View
+    {
+        if let code =
+            selectedCode
+        {
+            CodeDetailsCard(
+                code: code
+            )
 
-                HStack(spacing: 12) {
-                    Button {
-                        transmitter.send(
-                            code: code
-                        )
-                    } label: {
-                        Label(
-                            "PROBAR",
-                            systemImage:
-                                "wave.3.right"
-                        )
-                        .frame(
-                            maxWidth:
-                                .infinity
-                        )
-                    }
-                    .buttonStyle(
-                        .borderedProminent
+            HStack(spacing: 12) {
+                Button {
+                    transmitter.send(
+                        code: code
                     )
-                    .tint(.red)
-
-                    Button {
-                        showSaveSheet = true
-                    } label: {
-                        Label(
-                            "GUARDAR",
-                            systemImage:
-                                "star"
-                        )
-                        .frame(
-                            maxWidth:
-                                .infinity
-                        )
-                    }
-                    .buttonStyle(.bordered)
+                } label: {
+                    Label(
+                        "PROBAR",
+                        systemImage:
+                            "wave.3.right"
+                    )
+                    .frame(
+                        maxWidth:
+                            .infinity
+                    )
                 }
+                .buttonStyle(
+                    .borderedProminent
+                )
+                .tint(.red)
+
+                Button {
+                    showSaveSheet = true
+                } label: {
+                    Label(
+                        "GUARDAR",
+                        systemImage:
+                            "star"
+                    )
+                    .frame(
+                        maxWidth:
+                            .infinity
+                    )
+                }
+                .buttonStyle(.bordered)
             }
         }
     }
@@ -1083,7 +971,7 @@ private struct ManualCodeView: View {
                 source == .tvBGone
                 ? "TV-B-Gone no incluye marca real en todos sus códigos; se muestran los nombres disponibles."
                 : localBrowserPresentation.wrappedValue == .list
-                    ? "Solo aparecen las letras que contienen marcas."
+                    ? "Toca una marca para ver sus códigos dentro de esta misma lista."
                     : "Selecciona una marca con la ruleta."
             )
             .font(.caption)
@@ -1142,6 +1030,11 @@ private struct ManualCodeView: View {
                                     Button {
                                         selectedBrowseLetter =
                                             letter
+                                        selectedBrowseName =
+                                            ""
+                                        selectedCodeID =
+                                            ""
+                                        normalizeSelection()
                                         IRHaptics.tap()
                                     } label: {
                                         Text(letter)
@@ -1176,7 +1069,7 @@ private struct ManualCodeView: View {
                         }
                         .frame(
                             width: 42,
-                            height: 250
+                            height: 286
                         )
 
                         Divider()
@@ -1185,114 +1078,217 @@ private struct ManualCodeView: View {
                                     .opacity(0.10)
                             )
 
-                        ScrollView {
-                            LazyVStack(
-                                alignment: .leading,
-                                spacing: 4
-                            ) {
-                                ForEach(
-                                    visibleBrowserNames,
-                                    id: \.self
-                                ) { name in
-                                    Button {
-                                        selectedBrowseName =
-                                            selectedBrowseName
-                                                == name
-                                            ? ""
-                                            : name
+                        if selectedBrowseName
+                            .isEmpty
+                        {
+                            ScrollView {
+                                LazyVStack(
+                                    alignment:
+                                        .leading,
+                                    spacing: 4
+                                ) {
+                                    ForEach(
+                                        visibleBrowserNames,
+                                        id: \.self
+                                    ) { name in
+                                        Button {
+                                            selectedBrowseName =
+                                                name
+                                            searchText = ""
+                                            normalizeSelection()
+                                            IRHaptics.tap()
+                                        } label: {
+                                            HStack {
+                                                Text(name)
+                                                    .font(
+                                                        .subheadline
+                                                    )
+                                                    .foregroundStyle(
+                                                        .primary
+                                                    )
+                                                    .multilineTextAlignment(
+                                                        .leading
+                                                    )
 
-                                        searchText = ""
-                                        normalizeSelection()
-                                        IRHaptics.tap()
-                                    } label: {
-                                        HStack {
-                                            Text(name)
+                                                Spacer()
+
+                                                Image(
+                                                    systemName:
+                                                        "chevron.right"
+                                                )
                                                 .font(
-                                                    .subheadline
+                                                    .caption2
                                                 )
                                                 .foregroundStyle(
-                                                    .primary
+                                                    .secondary
                                                 )
-                                                .multilineTextAlignment(
-                                                    .leading
-                                                )
-
-                                            Spacer()
-
-                                            Image(
-                                                systemName:
-                                                    selectedBrowseName
-                                                        == name
-                                                    ? "checkmark.circle.fill"
-                                                    : "chevron.right"
+                                            }
+                                            .padding(
+                                                .horizontal,
+                                                10
                                             )
-                                            .font(
-                                                selectedBrowseName
-                                                    == name
-                                                ? .body
-                                                : .caption2
-                                            )
-                                            .foregroundStyle(
-                                                selectedBrowseName
-                                                    == name
-                                                ? Color.red
-                                                : Color.secondary
+                                            .padding(
+                                                .vertical,
+                                                9
                                             )
                                         }
-                                        .padding(
-                                            .horizontal,
-                                            10
-                                        )
-                                        .padding(
-                                            .vertical,
-                                            9
-                                        )
-                                        .background(
-                                            selectedBrowseName
-                                                == name
-                                            ? Color.red
-                                                .opacity(
-                                                    0.12
-                                                )
-                                            : Color.clear,
-                                            in:
-                                                RoundedRectangle(
-                                                    cornerRadius:
-                                                        10
-                                                )
-                                        )
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
+                            .frame(height: 286)
+                        } else {
+                            VStack(
+                                alignment: .leading,
+                                spacing: 8
+                            ) {
+                                Button {
+                                    selectedBrowseName =
+                                        ""
+                                    selectedCodeID =
+                                        ""
+                                    normalizeSelection()
+                                    IRHaptics.tap()
+                                } label: {
+                                    HStack(
+                                        spacing: 6
+                                    ) {
+                                        Image(
+                                            systemName:
+                                                "chevron.left"
+                                        )
+
+                                        Text(
+                                            selectedBrowseName
+                                        )
+                                        .font(
+                                            .subheadline
+                                                .bold()
+                                        )
+                                        .lineLimit(1)
+
+                                        Spacer()
+                                    }
+                                    .foregroundStyle(
+                                        .red
+                                    )
+                                    .padding(
+                                        .horizontal,
+                                        8
+                                    )
+                                    .padding(
+                                        .vertical,
+                                        7
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                Divider()
+                                    .overlay(
+                                        Color.white
+                                            .opacity(
+                                                0.08
+                                            )
+                                    )
+
+                                ScrollView {
+                                    LazyVStack(
+                                        alignment:
+                                            .leading,
+                                        spacing: 5
+                                    ) {
+                                        ForEach(
+                                            filteredCodes
+                                        ) { code in
+                                            Button {
+                                                selectedCodeID =
+                                                    code.id
+                                                IRHaptics.tap()
+                                            } label: {
+                                                HStack(
+                                                    spacing:
+                                                        10
+                                                ) {
+                                                    VStack(
+                                                        alignment:
+                                                            .leading,
+                                                        spacing:
+                                                            3
+                                                    ) {
+                                                        Text(
+                                                            code.displayName
+                                                        )
+                                                        .font(
+                                                            .caption
+                                                                .bold()
+                                                        )
+                                                        .foregroundStyle(
+                                                            .primary
+                                                        )
+                                                        .lineLimit(
+                                                            2
+                                                        )
+
+                                                        Text(
+                                                            "\(code.sourceLabel) · \((code.carrierHz == 0 ? 38_000 : code.carrierHz) / 1000) kHz"
+                                                        )
+                                                        .font(
+                                                            .caption2
+                                                        )
+                                                        .foregroundStyle(
+                                                            .secondary
+                                                        )
+                                                    }
+
+                                                    Spacer()
+
+                                                    Image(
+                                                        systemName:
+                                                            selectedCode?.id
+                                                                == code.id
+                                                            ? "checkmark.circle.fill"
+                                                            : "chevron.right"
+                                                    )
+                                                    .foregroundStyle(
+                                                        selectedCode?.id
+                                                            == code.id
+                                                        ? Color.red
+                                                        : Color.secondary
+                                                    )
+                                                }
+                                                .padding(
+                                                    .horizontal,
+                                                    8
+                                                )
+                                                .padding(
+                                                    .vertical,
+                                                    8
+                                                )
+                                                .background(
+                                                    selectedCode?.id
+                                                        == code.id
+                                                    ? Color.red
+                                                        .opacity(
+                                                            0.12
+                                                        )
+                                                    : Color.clear,
+                                                    in:
+                                                        RoundedRectangle(
+                                                            cornerRadius:
+                                                                10
+                                                        )
+                                                )
+                                            }
+                                            .buttonStyle(
+                                                .plain
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            .frame(height: 286)
                         }
-                        .frame(height: 250)
                     }
-                }
-
-                if !selectedBrowseName.isEmpty {
-                    HStack {
-                        Label(
-                            selectedBrowseName,
-                            systemImage:
-                                "line.3.horizontal.decrease.circle.fill"
-                        )
-                        .font(.caption.bold())
-                        .foregroundStyle(.red)
-
-                        Spacer()
-
-                        Button(
-                            "Quitar filtro"
-                        ) {
-                            selectedBrowseName =
-                                ""
-                            normalizeSelection()
-                            IRHaptics.tap()
-                        }
-                        .font(.caption)
-                    }
-                    .padding(.top, 2)
                 }
             } else {
                 Text(
