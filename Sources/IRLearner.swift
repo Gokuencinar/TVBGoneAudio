@@ -22,6 +22,9 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
     @Published private(set) var isRecording = false
     @Published private(set) var inputDescription = "Sin comprobar"
     @Published private(set) var inputChannels = 0
+    @Published private(set) var inputPortType = ""
+    @Published private(set) var isExternalInput = false
+    @Published private(set) var availableInputDescriptions: [String] = []
     @Published private(set) var sampleRate: Double = 0
     @Published private(set) var permissionGranted = false
     @Published private(set) var lastResult: IRCaptureResult?
@@ -105,28 +108,53 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
                 preferredSampleRate
             )
 
+            availableInputDescriptions =
+                (session.availableInputs ?? []).map { port in
+                    "\(port.portName) · \(port.portType.rawValue)"
+                }
+
+            if let external =
+                (session.availableInputs ?? []).first(where: {
+                    $0.portType != .builtInMic
+                })
+            {
+                try? session.setPreferredInput(external)
+            }
+
             try session.setActive(true)
 
             sampleRate = session.sampleRate
+            updateInputInfo(session.currentRoute.inputs.first)
 
-            let input = session.currentRoute.inputs.first
-            inputChannels =
-                input?.channels?.count ?? 0
-
-            inputDescription =
-                "\(input?.portName ?? "Sin entrada") · \(inputChannels) canal(es)"
-
-            if inputChannels > 0 {
+            if inputChannels <= 0 {
                 status =
-                    "Entrada disponible. Apunta el mando al receptor IR, inicia la captura y pulsa una sola vez el botón que quieras copiar."
+                    "No aparece ninguna entrada de audio. El emisor IR puede seguir transmitiendo, pero para aprender necesitas un receptor conectado a una entrada de audio."
+            } else if !isExternalInput {
+                status =
+                    "La única entrada activa es el micrófono interno del iPhone. Este accesorio no ofrece una entrada externa, así que no puede aprender IR con el hardware conectado."
             } else {
                 status =
-                    "No aparece ninguna entrada de audio. El emisor IR actual puede seguir transmitiendo, pero para aprender necesitas un receptor conectado a una entrada de audio."
+                    "Entrada externa detectada. Esto confirma la ruta de audio; todavía hay que comprobar que el hardware conectado sea realmente un receptor IR válido."
             }
         } catch {
             status =
                 "No se pudo configurar la entrada: \(error.localizedDescription)"
         }
+    }
+
+    private func updateInputInfo(
+        _ input: AVAudioSessionPortDescription?
+    ) {
+        inputChannels =
+            input?.channels?.count ?? 0
+        inputPortType =
+            input?.portType.rawValue ?? ""
+        isExternalInput =
+            input != nil
+            && input?.portType != .builtInMic
+
+        inputDescription =
+            "\(input?.portName ?? "Sin entrada") · \(inputChannels) canal(es)"
     }
 
     func beginValidatedCapture() {
@@ -172,20 +200,33 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
                 preferredSampleRate
             )
 
+            availableInputDescriptions =
+                (session.availableInputs ?? []).map { port in
+                    "\(port.portName) · \(port.portType.rawValue)"
+                }
+
+            if let external =
+                (session.availableInputs ?? []).first(where: {
+                    $0.portType != .builtInMic
+                })
+            {
+                try? session.setPreferredInput(external)
+            }
+
             try session.setActive(true)
 
             sampleRate = session.sampleRate
-
-            let input = session.currentRoute.inputs.first
-            inputChannels =
-                input?.channels?.count ?? 0
-
-            inputDescription =
-                "\(input?.portName ?? "Sin entrada") · \(inputChannels) canal(es)"
+            updateInputInfo(session.currentRoute.inputs.first)
 
             guard inputChannels > 0 else {
                 status =
                     "No hay una entrada de audio disponible para capturar el mando."
+                return
+            }
+
+            guard isExternalInput else {
+                status =
+                    "Captura bloqueada: iOS está usando el micrófono interno del iPhone. Conecta una interfaz que exponga una entrada de audio externa para el receptor IR."
                 return
             }
 
