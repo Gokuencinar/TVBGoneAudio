@@ -190,6 +190,37 @@ enum IRSignalAnalyzer {
             .sorted { $0.confidence > $1.confidence }
     }
 
+    static func recommendedCarrierHz(
+        for code: IRCode
+    ) -> Int {
+        guard
+            let best =
+                analyze(code: code).first
+        else {
+            return 38_000
+        }
+
+        let name =
+            best.name.lowercased()
+
+        if name.contains("rc5")
+            || name.contains("rc6")
+        {
+            return 36_000
+        }
+
+        if name.contains("sony")
+            || name.contains("sirc")
+            || name.contains("pioneer")
+        {
+            return 40_000
+        }
+
+        // NEC, NEC Extended, Samsung32, JVC, RCA and
+        // Kaseikyo/Panasonic are normally around 38 kHz.
+        return 38_000
+    }
+
     static func bestDatabaseMatches(
         for code: IRCode,
         category: IRDeviceCategory,

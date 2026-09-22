@@ -52,7 +52,7 @@ struct ContentView: View {
                 category: $category
             )
             .tabItem {
-                Label("Aprender", systemImage: "waveform.badge.mic")
+                Label("Aprender", systemImage: "mic.fill")
             }
 
             DiagnosticsView(
@@ -763,6 +763,33 @@ private struct DiagnosticsView: View {
                         .thinMaterial,
                         in: RoundedRectangle(cornerRadius: 18)
                     )
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Por qué importan los ajustes de audio")
+                            .font(.headline)
+
+                        Label(
+                            "Volumen: controla la amplitud eléctrica. Si baja demasiado, los LED IR reciben menos corriente y cae mucho el alcance.",
+                            systemImage: "speaker.wave.3.fill"
+                        )
+
+                        Label(
+                            "Balance: debe estar centrado porque el adaptador usa la diferencia entre L y R. Desplazarlo reduce la tensión diferencial y la potencia IR.",
+                            systemImage: "slider.horizontal.3"
+                        )
+
+                        Label(
+                            "Audio mono: debe estar desactivado. La app genera L y R en oposición de fase; al mezclarlos a mono pueden cancelarse casi por completo.",
+                            systemImage: "ear.and.waveform"
+                        )
+                    }
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(
+                        .thinMaterial,
+                        in: RoundedRectangle(cornerRadius: 18)
+                    )
                 }
                 .padding()
             }
@@ -1019,7 +1046,7 @@ private struct LearnIRView: View {
 
     @Binding var category: IRDeviceCategory
 
-    @State private var carrierHz = 38_000
+    @State private var carrierHz = 0
     @State private var signalName = "Power"
 
     @State private var showImporter = false
@@ -1030,7 +1057,7 @@ private struct LearnIRView: View {
     @State private var guidedIndex = 0
 
     private let carriers =
-        [36_000, 38_000, 40_000, 56_000]
+        [0, 36_000, 38_000, 40_000, 56_000]
 
     var body: some View {
         NavigationStack {
@@ -1337,7 +1364,9 @@ private struct LearnIRView: View {
                     id: \.self
                 ) { hz in
                     Text(
-                        "\(hz / 1000) kHz"
+                        hz == 0
+                        ? "Auto"
+                        : "\(hz / 1000)"
                     )
                     .tag(hz)
                 }
@@ -1345,7 +1374,9 @@ private struct LearnIRView: View {
             .pickerStyle(.segmented)
 
             Text(
-                "Un receptor demodulado elimina la portadora óptica antes de llegar al iPhone, por eso aquí debes indicar la frecuencia del receptor/mando."
+                carrierHz == 0
+                ? "Auto analiza la trama capturada, intenta reconocer el protocolo y elige su portadora habitual. Con un receptor IR demodulado no es posible medir directamente la portadora óptica porque el propio receptor ya la ha eliminado."
+                : "Selección manual: \(carrierHz / 1000) kHz. Úsala si conoces la frecuencia del mando o la del receptor."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -1468,12 +1499,17 @@ private struct LearnIRView: View {
     private func learnedResultCard(
         _ result: IRCaptureResult
     ) -> some View {
+        let resolvedCarrier =
+            effectiveCarrier(
+                for: result
+            )
+
         let code =
             IRCode(
                 id:
                     "learn-preview",
                 carrierHz:
-                    carrierHz,
+                    resolvedCarrier,
                 durationsMicros:
                     result.durationsMicros
             )
@@ -1503,6 +1539,14 @@ private struct LearnIRView: View {
                         "\(result.durationMillis) ms"
                 )
             }
+
+            LabeledContent(
+                "Portadora",
+                value:
+                    carrierHz == 0
+                    ? "Auto → \(resolvedCarrier / 1000) kHz"
+                    : "\(resolvedCarrier / 1000) kHz"
+            )
 
             IRWaveformView(
                 durations:
@@ -1563,7 +1607,7 @@ private struct LearnIRView: View {
                     learnedSignals.add(
                         name: signalName,
                         category: category,
-                        carrierHz: carrierHz,
+                        carrierHz: resolvedCarrier,
                         result: result
                     )
 
@@ -1727,6 +1771,27 @@ private struct LearnIRView: View {
                 alignment: .leading
             )
         }
+    }
+
+    private func effectiveCarrier(
+        for result: IRCaptureResult
+    ) -> Int {
+        if carrierHz > 0 {
+            return carrierHz
+        }
+
+        let probe =
+            IRCode(
+                id: "auto-carrier-probe",
+                carrierHz: 0,
+                durationsMicros:
+                    result.durationsMicros
+            )
+
+        return IRSignalAnalyzer
+            .recommendedCarrierHz(
+                for: probe
+            )
     }
 
     private var guidedButtons:

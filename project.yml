@@ -28,8 +28,8 @@ targets:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: IR Universal
-        CFBundleShortVersionString: "3.0"
-        CFBundleVersion: "8"
+        CFBundleShortVersionString: "3.1"
+        CFBundleVersion: "9"
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations:
