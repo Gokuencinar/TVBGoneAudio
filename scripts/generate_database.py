@@ -6,55 +6,80 @@ from pathlib import Path
 
 UPSTREAM = "https://raw.githubusercontent.com/shirriff/Arduino-TV-B-Gone/master/WORLD_IR_CODES.h"
 
+
+def strip_comments(s):
+    # Remove C block comments first, then C++ line comments.
+    # This is essential because WORLD_IR_CODES.h contains old/duplicate
+    # code definitions that are intentionally commented out.
+    s = re.sub(r"/\*.*?\*/", "", s, flags=re.S)
+    s = re.sub(r"//[^\n]*", "", s)
+    return s
+
+
 def parse_numbers(body):
-    body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
-    body = re.sub(r"//.*", "", body)
     out = []
     for token in body.split(","):
         token = token.strip()
-        if not token:
-            continue
-        out.append(int(token, 0))
+        if token:
+            out.append(int(token, 0))
     return out
 
-def strip_comments(s):
-    s = re.sub(r"/\*.*?\*/", "", s, flags=re.S)
-    s = re.sub(r"//.*", "", s)
-    return s
 
 def read_bits(data, nbits, bitpos):
     value = 0
     for _ in range(nbits):
         byte_index = bitpos // 8
+        if byte_index >= len(data):
+            raise RuntimeError("Compressed code data ended unexpectedly")
         bit_index = 7 - (bitpos % 8)
         bit = (data[byte_index] >> bit_index) & 1
         value = (value << 1) | bit
         bitpos += 1
     return value, bitpos
 
+
 def main():
     if len(sys.argv) >= 2 and Path(sys.argv[1]).exists():
-        text = Path(sys.argv[1]).read_text(encoding="utf-8")
-        output = Path(sys.argv[2]) if len(sys.argv) >= 3 else Path("Sources/GeneratedTVBGoneDatabase.swift")
+        raw_text = Path(sys.argv[1]).read_text(encoding="utf-8")
+        output = (
+            Path(sys.argv[2])
+            if len(sys.argv) >= 3
+            else Path("Sources/GeneratedTVBGoneDatabase.swift")
+        )
     else:
         with urllib.request.urlopen(UPSTREAM, timeout=30) as response:
-            text = response.read().decode("utf-8")
-        output = Path(sys.argv[1]) if len(sys.argv) >= 2 else Path("Sources/GeneratedTVBGoneDatabase.swift")
+            raw_text = response.read().decode("utf-8")
+        output = (
+            Path(sys.argv[1])
+            if len(sys.argv) >= 2
+            else Path("Sources/GeneratedTVBGoneDatabase.swift")
+        )
+
+    # IMPORTANT: parse only active C declarations.
+    text = strip_comments(raw_text)
 
     timing_arrays = {}
-    for m in re.finditer(r"const\s+uint16_t\s+(\w+Times)\[\]\s+PROGMEM\s*=\s*\{(.*?)\};", text, re.S):
+    for m in re.finditer(
+        r"const\s+uint16_t\s+(\w+Times)\[\]\s+PROGMEM\s*=\s*\{(.*?)\};",
+        text,
+        re.S,
+    ):
         timing_arrays[m.group(1)] = parse_numbers(m.group(2))
 
     code_arrays = {}
-    for m in re.finditer(r"const\s+uint8_t\s+(\w+Codes)\[\]\s+PROGMEM\s*=\s*\{(.*?)\};", text, re.S):
+    for m in re.finditer(
+        r"const\s+uint8_t\s+(\w+Codes)\[\]\s+PROGMEM\s*=\s*\{(.*?)\};",
+        text,
+        re.S,
+    ):
         code_arrays[m.group(1)] = parse_numbers(m.group(2))
 
     structs = {}
     pattern = re.compile(
         r"const\s+struct\s+IrCode\s+(\w+Code)\s+PROGMEM\s*=\s*\{\s*"
         r"(freq_to_timerval\((\d+)\)|0)\s*,\s*"
-        r"(\d+)\s*,.*?"
-        r"(\d+)\s*,.*?"
+        r"(\d+)\s*,\s*"
+        r"(\d+)\s*,\s*"
         r"(\w+Times)\s*,\s*"
         r"(\w+Codes)\s*\};",
         re.S,
@@ -68,16 +93,26 @@ def main():
         times_name = m.group(6)
         codes_name = m.group(7)
 
+        if times_name not in timing_arrays:
+            raise RuntimeError(f"Missing timing table {times_name} for {name}")
+        if codes_name not in code_arrays:
+            raise RuntimeError(f"Missing code table {codes_name} for {name}")
+
         times = timing_arrays[times_name]
         packed = code_arrays[codes_name]
         bitpos = 0
         durations = []
+
         for _ in range(numpairs):
             idx, bitpos = read_bits(packed, bitcompression, bitpos)
             pos = idx * 2
             if pos + 1 >= len(times):
-                raise RuntimeError(f"Timing index out of range in {name}")
+                raise RuntimeError(
+                    f"Timing index {idx} out of range in {name} "
+                    f"(table {times_name} has {len(times)//2} pairs)"
+                )
             durations.extend((times[pos] * 10, times[pos + 1] * 10))
+
         structs[name] = (carrier, durations)
 
     def region(name):
@@ -88,16 +123,14 @@ def main():
         )
         if not m:
             raise RuntimeError(f"Missing region {name}")
-        body = strip_comments(m.group(1))
-        names = re.findall(r"&\s*(\w+Code)", body)
-        return names
+        return re.findall(r"&\s*(\w+Code)", m.group(1))
 
     na_names = region("NApowerCodes")
     eu_names = region("EUpowerCodes")
 
     missing = [n for n in na_names + eu_names if n not in structs]
     if missing:
-        raise RuntimeError("Unparsed codes: " + ", ".join(missing[:10]))
+        raise RuntimeError("Unparsed active codes: " + ", ".join(missing[:20]))
 
     def swift_array(names):
         lines = []
@@ -105,7 +138,8 @@ def main():
             carrier, durations = structs[name]
             nums = ",".join(str(x) for x in durations)
             lines.append(
-                f'        IRCode(id: "{name}", carrierHz: {carrier}, durationsMicros: [{nums}]),'
+                f'        IRCode(id: "{name}", carrierHz: {carrier}, '
+                f'durationsMicros: [{nums}]),'
             )
         return "\n".join(lines)
 
@@ -129,7 +163,11 @@ enum GeneratedTVBGoneDatabase {
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(swift, encoding="utf-8")
-    print(f"Generated {len(na_names)} NA codes and {len(eu_names)} EU codes -> {output}")
+    print(
+        f"Generated {len(na_names)} NA codes and "
+        f"{len(eu_names)} EU codes -> {output}"
+    )
+
 
 if __name__ == "__main__":
     main()
