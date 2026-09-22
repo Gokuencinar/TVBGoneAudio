@@ -104,8 +104,7 @@ class MainActivity : Activity() {
 
     private fun showControl() {
         scanner.stop()
-        val body = verticalBody()
-        contentHost.replace(body)
+        val body = installScrollableBody()
 
         body.addView(sectionTitle("Barrido IR"))
 
@@ -409,8 +408,7 @@ class MainActivity : Activity() {
 
     private fun showLearn() {
         scanner.stop()
-        val body = verticalBody()
-        contentHost.replace(body)
+        val body = installScrollableBody()
 
         body.addView(sectionTitle("Aprender IR por entrada de audio"))
         body.addView(infoText(
@@ -525,8 +523,7 @@ class MainActivity : Activity() {
 
     private fun showDiagnostics() {
         scanner.stop()
-        val body = verticalBody()
-        contentHost.replace(body)
+        val body = installScrollableBody()
 
         body.addView(sectionTitle("Diagnóstico"))
         val diag = infoText(transmitter.diagnostics())
@@ -672,32 +669,25 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun verticalBody(): LinearLayout {
+    private fun installScrollableBody(): LinearLayout {
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(10), dp(14), dp(28))
             setBackgroundColor(Color.BLACK)
         }
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        val scroll = ScrollView(this).apply {
             setBackgroundColor(Color.BLACK)
-            val scroll = ScrollView(this@MainActivity).apply { addView(body) }
-            addView(scroll, LinearLayout.LayoutParams(
+            addView(body, ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
+                ViewGroup.LayoutParams.WRAP_CONTENT
             ))
-        }.also {
-            it.tag = body
-        }.let { wrapper ->
-            // contentHost accepts the wrapper; callers need the inner body.
-            contentHost.removeAllViews()
-            contentHost.addView(wrapper, FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            ))
-            body
         }
+        contentHost.removeAllViews()
+        contentHost.addView(scroll, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        return body
     }
 
     private fun FrameLayout.replace(view: View) {
