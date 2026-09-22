@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +18,32 @@ jobs:
           curl -L --fail \
             https://raw.githubusercontent.com/shirriff/Arduino-TV-B-Gone/master/WORLD_IR_CODES.h \
             -o /tmp/WORLD_IR_CODES.h
-          python3 scripts/generate_database.py /tmp/WORLD_IR_CODES.h Sources/GeneratedTVBGoneDatabase.swift
+          python3 scripts/generate_database.py \
+            /tmp/WORLD_IR_CODES.h \
+            Sources/GeneratedTVBGoneDatabase.swift
+
+      - name: Generate expanded TV / AC / projector database
+        run: |
+          rm -rf /tmp/Flipper-IRDB
+          git init /tmp/Flipper-IRDB
+          git -C /tmp/Flipper-IRDB remote add origin \
+            https://github.com/Lucaslhm/Flipper-IRDB.git
+          git -C /tmp/Flipper-IRDB config core.sparseCheckout true
+          mkdir -p /tmp/Flipper-IRDB/.git/info
+          printf 'TVs/\nACs/\nProjectors/\n' \
+            > /tmp/Flipper-IRDB/.git/info/sparse-checkout
+
+          # Pinned for reproducible builds.
+          FLIPPER_IRDB_COMMIT=d126fb1b6f1e114c52b4a8c19839ea65e3a9c24d
+          git -C /tmp/Flipper-IRDB fetch \
+            --depth 1 origin "$FLIPPER_IRDB_COMMIT"
+          git -C /tmp/Flipper-IRDB checkout FETCH_HEAD
+
+          python3 scripts/generate_flipper_power_database.py \
+            /tmp/Flipper-IRDB \
+            Sources/GeneratedFlipperPowerDatabase.swift
+
+          ls -lh Sources/GeneratedFlipperPowerDatabase.swift
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -43,7 +68,9 @@ jobs:
         run: |
           rm -rf Payload TVBGoneAudio.ipa
           mkdir Payload
-          cp -R build/Build/Products/Release-iphoneos/TVBGoneAudio.app Payload/
+          cp -R \
+            build/Build/Products/Release-iphoneos/TVBGoneAudio.app \
+            Payload/
           zip -qry TVBGoneAudio.ipa Payload
           unzip -l TVBGoneAudio.ipa | head -40
 
