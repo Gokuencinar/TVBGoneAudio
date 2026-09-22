@@ -1,6 +1,35 @@
 import SwiftUI
 import UIKit
 
+enum IRBrowserPresentation:
+    String,
+    CaseIterable,
+    Identifiable
+{
+    case list
+    case wheel
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .list:
+            return "Lista"
+        case .wheel:
+            return "Ruleta"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .list:
+            return "list.bullet"
+        case .wheel:
+            return "circle.grid.cross"
+        }
+    }
+}
+
 extension View {
     func irCard(
         cornerRadius: CGFloat = 18
@@ -25,6 +54,28 @@ extension View {
         modifier(
             IROLEDRootModifier(
                 enabled: enabled
+            )
+        )
+    }
+
+    func irOLEDControlSurface(
+        cornerRadius: CGFloat = 10
+    ) -> some View {
+        modifier(
+            IROLEDControlModifier(
+                cornerRadius:
+                    cornerRadius
+            )
+        )
+    }
+
+    func irOLEDInput(
+        cornerRadius: CGFloat = 12
+    ) -> some View {
+        modifier(
+            IROLEDInputModifier(
+                cornerRadius:
+                    cornerRadius
             )
         )
     }
@@ -142,6 +193,118 @@ private struct IROLEDRootModifier:
             .toolbarBackground(
                 .visible,
                 for: .tabBar
+            )
+            .toolbarBackground(
+                enabled
+                    ? Color.black
+                    : Color(
+                        .systemBackground
+                    ),
+                for: .navigationBar
+            )
+            .toolbarBackground(
+                .visible,
+                for: .navigationBar
+            )
+    }
+}
+
+private struct IROLEDControlModifier:
+    ViewModifier
+{
+    @AppStorage(
+        "irUniversal.oledMode"
+    )
+    private var oledMode = true
+
+    let cornerRadius: CGFloat
+
+    func body(
+        content: Content
+    ) -> some View {
+        content
+            .tint(.red)
+            .padding(oledMode ? 2 : 0)
+            .background(
+                oledMode
+                    ? Color.white
+                        .opacity(0.045)
+                    : Color.clear,
+                in:
+                    RoundedRectangle(
+                        cornerRadius:
+                            cornerRadius,
+                        style:
+                            .continuous
+                    )
+            )
+            .overlay(
+                RoundedRectangle(
+                    cornerRadius:
+                        cornerRadius,
+                    style:
+                        .continuous
+                )
+                .stroke(
+                    oledMode
+                        ? Color.white
+                            .opacity(0.07)
+                        : Color.clear,
+                    lineWidth: 0.6
+                )
+            )
+    }
+}
+
+private struct IROLEDInputModifier:
+    ViewModifier
+{
+    @AppStorage(
+        "irUniversal.oledMode"
+    )
+    private var oledMode = true
+
+    let cornerRadius: CGFloat
+
+    func body(
+        content: Content
+    ) -> some View {
+        content
+            .padding(
+                .horizontal,
+                oledMode ? 12 : 0
+            )
+            .padding(
+                .vertical,
+                oledMode ? 11 : 0
+            )
+            .background(
+                oledMode
+                    ? Color.white
+                        .opacity(0.055)
+                    : Color.clear,
+                in:
+                    RoundedRectangle(
+                        cornerRadius:
+                            cornerRadius,
+                        style:
+                            .continuous
+                    )
+            )
+            .overlay(
+                RoundedRectangle(
+                    cornerRadius:
+                        cornerRadius,
+                    style:
+                        .continuous
+                )
+                .stroke(
+                    oledMode
+                        ? Color.white
+                            .opacity(0.085)
+                        : Color.clear,
+                    lineWidth: 0.7
+                )
             )
     }
 }

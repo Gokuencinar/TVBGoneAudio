@@ -22,15 +22,50 @@ struct OnlineIRLibraryView: View {
     @State private var importing = false
     @State private var selectedLetter = "A"
 
+    @AppStorage(
+        "irUniversal.onlineBrowserPresentation"
+    )
+    private var onlineBrowserPresentationRaw =
+        IRBrowserPresentation.list.rawValue
+
     private let alphabet =
         Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
             .map(String.init)
+
+    private var availableLetters:
+        [String]
+    {
+        alphabet.filter { letter in
+            library.brands.contains {
+                normalizedFirstLetter($0)
+                    == letter
+            }
+        }
+    }
 
     private var visibleBrands: [String] {
         library.brands.filter {
             normalizedFirstLetter($0)
                 == selectedLetter
         }
+    }
+
+    private var onlineBrowserPresentation:
+        Binding<IRBrowserPresentation>
+    {
+        Binding(
+            get: {
+                IRBrowserPresentation(
+                    rawValue:
+                        onlineBrowserPresentationRaw
+                ) ?? .list
+            },
+            set: { value in
+                onlineBrowserPresentationRaw =
+                    value.rawValue
+                IRHaptics.tap()
+            }
+        )
     }
 
     var body: some View {
@@ -100,7 +135,8 @@ struct OnlineIRLibraryView: View {
                 "Marca (ej. TD Systems)",
                 text: $brand
             )
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .irOLEDInput()
             .textInputAutocapitalization(
                 .words
             )
@@ -109,7 +145,8 @@ struct OnlineIRLibraryView: View {
                 "Modelo (opcional)",
                 text: $model
             )
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .irOLEDInput()
             .textInputAutocapitalization(
                 .never
             )
@@ -127,6 +164,7 @@ struct OnlineIRLibraryView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .irOLEDControlSurface()
 
             Toggle(
                 "Búsqueda profunda",
@@ -200,118 +238,126 @@ struct OnlineIRLibraryView: View {
                 }
             }
 
+            Picker(
+                "Vista",
+                selection:
+                    onlineBrowserPresentation
+            ) {
+                ForEach(
+                    IRBrowserPresentation
+                        .allCases
+                ) { mode in
+                    Label(
+                        mode.title,
+                        systemImage:
+                            mode.systemImage
+                    )
+                    .tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .irOLEDControlSurface()
+
             Text(
-                "Puedes usar la ruleta o navegar por la lista A–Z."
+                onlineBrowserPresentation
+                    .wrappedValue == .list
+                ? "Solo aparecen las letras que tienen marcas."
+                : "Selecciona una marca usando la ruleta."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
 
             if !library.brands.isEmpty {
-                Picker(
-                    "Marca",
-                    selection: $brand
-                ) {
-                    Text(
-                        "Sin seleccionar"
-                    )
-                    .tag("")
+                if onlineBrowserPresentation
+                    .wrappedValue == .wheel
+                {
+                    Picker(
+                        "Marca",
+                        selection: $brand
+                    ) {
+                        Text(
+                            "Sin seleccionar"
+                        )
+                        .tag("")
 
-                    ForEach(
-                        library.brands,
-                        id: \.self
-                    ) { item in
-                        Text(item)
-                            .tag(item)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .frame(height: 132)
-                .clipped()
-
-                Divider()
-
-                HStack(
-                    alignment: .top,
-                    spacing: 10
-                ) {
-                    ScrollView {
-                        LazyVStack(
-                            spacing: 4
-                        ) {
-                            ForEach(
-                                alphabet,
-                                id: \.self
-                            ) { letter in
-                                let enabled =
-                                    library.brands
-                                        .contains {
-                                            normalizedFirstLetter(
-                                                $0
-                                            ) == letter
-                                        }
-
-                                Button {
-                                    selectedLetter =
-                                        letter
-                                    IRHaptics.tap()
-                                } label: {
-                                    Text(letter)
-                                        .font(
-                                            .caption.bold()
-                                        )
-                                        .frame(
-                                            width: 34,
-                                            height: 30
-                                        )
-                                        .foregroundStyle(
-                                            selectedLetter
-                                                == letter
-                                            ? Color.white
-                                            : enabled
-                                                ? Color.red
-                                                : Color.secondary
-                                                    .opacity(
-                                                        0.35
-                                                    )
-                                        )
-                                        .background(
-                                            selectedLetter
-                                                == letter
-                                            ? Color.red
-                                            : Color.clear,
-                                            in: RoundedRectangle(
-                                                cornerRadius:
-                                                    8
-                                            )
-                                        )
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(!enabled)
-                            }
+                        ForEach(
+                            library.brands,
+                            id: \.self
+                        ) { item in
+                            Text(item)
+                                .tag(item)
                         }
                     }
-                    .frame(
-                        width: 42,
-                        height: 286
+                    .pickerStyle(.wheel)
+                    .frame(height: 150)
+                    .clipped()
+                    .irOLEDControlSurface(
+                        cornerRadius: 14
                     )
+                } else {
+                    HStack(
+                        alignment: .top,
+                        spacing: 10
+                    ) {
+                        ScrollView {
+                            LazyVStack(
+                                spacing: 4
+                            ) {
+                                ForEach(
+                                    availableLetters,
+                                    id: \.self
+                                ) { letter in
+                                    Button {
+                                        selectedLetter =
+                                            letter
+                                        IRHaptics.tap()
+                                    } label: {
+                                        Text(letter)
+                                            .font(
+                                                .caption.bold()
+                                            )
+                                            .frame(
+                                                width: 34,
+                                                height: 30
+                                            )
+                                            .foregroundStyle(
+                                                selectedLetter
+                                                    == letter
+                                                ? Color.white
+                                                : Color.red
+                                            )
+                                            .background(
+                                                selectedLetter
+                                                    == letter
+                                                ? Color.red
+                                                : Color.clear,
+                                                in:
+                                                    RoundedRectangle(
+                                                        cornerRadius:
+                                                            8
+                                                    )
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .frame(
+                            width: 42,
+                            height: 286
+                        )
 
-                    Divider()
+                        Divider()
+                            .overlay(
+                                Color.white
+                                    .opacity(0.10)
+                            )
 
-                    ScrollView {
-                        LazyVStack(
-                            alignment: .leading,
-                            spacing: 4
-                        ) {
-                            if visibleBrands.isEmpty {
-                                Text(
-                                    "No hay marcas con esta letra."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(
-                                    .secondary
-                                )
-                                .padding()
-                            } else {
+                        ScrollView {
+                            LazyVStack(
+                                alignment: .leading,
+                                spacing: 4
+                            ) {
                                 ForEach(
                                     visibleBrands,
                                     id: \.self
@@ -334,26 +380,22 @@ struct OnlineIRLibraryView: View {
 
                                             Spacer()
 
-                                            if brand == item {
-                                                Image(
-                                                    systemName:
-                                                        "checkmark.circle.fill"
-                                                )
-                                                .foregroundStyle(
-                                                    .red
-                                                )
-                                            } else {
-                                                Image(
-                                                    systemName:
-                                                        "chevron.right"
-                                                )
-                                                .font(
-                                                    .caption2
-                                                )
-                                                .foregroundStyle(
-                                                    .secondary
-                                                )
-                                            }
+                                            Image(
+                                                systemName:
+                                                    brand == item
+                                                    ? "checkmark.circle.fill"
+                                                    : "chevron.right"
+                                            )
+                                            .font(
+                                                brand == item
+                                                ? .body
+                                                : .caption2
+                                            )
+                                            .foregroundStyle(
+                                                brand == item
+                                                ? Color.red
+                                                : Color.secondary
+                                            )
                                         }
                                         .padding(
                                             .horizontal,
@@ -370,18 +412,19 @@ struct OnlineIRLibraryView: View {
                                                         0.12
                                                     )
                                                 : Color.clear,
-                                            in: RoundedRectangle(
-                                                cornerRadius:
-                                                    10
-                                            )
+                                            in:
+                                                RoundedRectangle(
+                                                    cornerRadius:
+                                                        10
+                                                )
                                         )
                                     }
                                     .buttonStyle(.plain)
                                 }
                             }
                         }
+                        .frame(height: 286)
                     }
-                    .frame(height: 286)
                 }
 
                 if !brand.isEmpty {
@@ -444,7 +487,8 @@ struct OnlineIRLibraryView: View {
                 "https://…",
                 text: $importURL
             )
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .irOLEDInput()
             .textInputAutocapitalization(
                 .never
             )
@@ -625,21 +669,14 @@ struct OnlineIRLibraryView: View {
         }
 
         if
-            !library.brands
-                .contains(
-                    where: {
-                        normalizedFirstLetter(
-                            $0
-                        ) == selectedLetter
-                    }
-                ),
+            !availableLetters.contains(
+                selectedLetter
+            ),
             let first =
-                library.brands.first
+                availableLetters.first
         {
             selectedLetter =
-                normalizedFirstLetter(
-                    first
-                )
+                first
         }
     }
 

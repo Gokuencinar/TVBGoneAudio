@@ -241,6 +241,7 @@ private struct ControlView: View {
             }
         }
         .pickerStyle(.segmented)
+                    .irOLEDControlSurface()
         .disabled(transmitter.isScanning)
     }
 
@@ -383,6 +384,7 @@ private struct ControlView: View {
                 }
             }
             .pickerStyle(.segmented)
+                    .irOLEDControlSurface()
             .disabled(transmitter.isScanning)
 
             Text(pace.help)
@@ -598,6 +600,12 @@ private struct ManualCodeView: View {
     @State private var selectedBrowseLetter = "A"
     @State private var selectedBrowseName = ""
 
+    @AppStorage(
+        "irUniversal.localBrowserPresentation"
+    )
+    private var localBrowserPresentationRaw =
+        IRBrowserPresentation.list.rawValue
+
     private let alphabet =
         Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
             .map(String.init)
@@ -634,11 +642,40 @@ private struct ManualCodeView: View {
             }
     }
 
+    private var availableBrowseLetters:
+        [String]
+    {
+        alphabet.filter { letter in
+            browserNames.contains {
+                firstLetter(of: $0)
+                    == letter
+            }
+        }
+    }
+
     private var visibleBrowserNames: [String] {
         browserNames.filter {
             firstLetter(of: $0)
                 == selectedBrowseLetter
         }
+    }
+
+    private var localBrowserPresentation:
+        Binding<IRBrowserPresentation>
+    {
+        Binding(
+            get: {
+                IRBrowserPresentation(
+                    rawValue:
+                        localBrowserPresentationRaw
+                ) ?? .list
+            },
+            set: { value in
+                localBrowserPresentationRaw =
+                    value.rawValue
+                IRHaptics.tap()
+            }
+        )
     }
 
     private var filteredCodes: [IRCode] {
@@ -687,6 +724,7 @@ private struct ManualCodeView: View {
                             }
                         }
                         .pickerStyle(.segmented)
+                    .irOLEDControlSurface()
                     }
 
                     NavigationLink {
@@ -723,7 +761,8 @@ private struct ManualCodeView: View {
                         "Buscar marca, modelo o código",
                         text: $searchText
                     )
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    .irOLEDInput()
                     .textInputAutocapitalization(.never)
 
                     Picker("Origen", selection: $source) {
@@ -732,6 +771,7 @@ private struct ManualCodeView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .irOLEDControlSurface()
 
                     localBrandBrowser
 
@@ -833,7 +873,7 @@ private struct ManualCodeView: View {
         ) {
             HStack {
                 Label(
-                    "Índice A–Z",
+                    "Explorar marcas",
                     systemImage:
                         "textformat.abc"
                 )
@@ -851,168 +891,215 @@ private struct ManualCodeView: View {
                 .foregroundStyle(.secondary)
             }
 
+            Picker(
+                "Vista",
+                selection:
+                    localBrowserPresentation
+            ) {
+                ForEach(
+                    IRBrowserPresentation
+                        .allCases
+                ) { mode in
+                    Label(
+                        mode.title,
+                        systemImage:
+                            mode.systemImage
+                    )
+                    .tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .irOLEDControlSurface()
+
             Text(
                 source == .tvBGone
-                ? "TV-B-Gone no incluye marca real en todos sus códigos; en esos casos se muestran los nombres disponibles."
-                : "Elige una letra y después una marca para filtrar la ruleta."
+                ? "TV-B-Gone no incluye marca real en todos sus códigos; se muestran los nombres disponibles."
+                : localBrowserPresentation.wrappedValue == .list
+                    ? "Solo aparecen las letras que contienen marcas."
+                    : "Selecciona una marca con la ruleta."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
 
             if !browserNames.isEmpty {
-                HStack(
-                    alignment: .top,
-                    spacing: 10
-                ) {
-                    ScrollView {
-                        LazyVStack(
-                            spacing: 4
-                        ) {
-                            ForEach(
-                                alphabet,
-                                id: \.self
-                            ) { letter in
-                                let enabled =
-                                    browserNames
-                                        .contains {
-                                            firstLetter(
-                                                of: $0
-                                            ) == letter
-                                        }
-
-                                Button {
-                                    selectedBrowseLetter =
-                                        letter
+                if localBrowserPresentation
+                    .wrappedValue == .wheel
+                {
+                    Picker(
+                        "Marca",
+                        selection:
+                            Binding(
+                                get: {
+                                    selectedBrowseName
+                                },
+                                set: { value in
+                                    selectedBrowseName =
+                                        value
+                                    searchText = ""
+                                    normalizeSelection()
                                     IRHaptics.tap()
-                                } label: {
-                                    Text(letter)
-                                        .font(
-                                            .caption.bold()
-                                        )
-                                        .frame(
-                                            width: 34,
-                                            height: 30
-                                        )
-                                        .foregroundStyle(
-                                            selectedBrowseLetter
-                                                == letter
-                                            ? Color.white
-                                            : enabled
+                                }
+                            )
+                    ) {
+                        Text("Todas")
+                            .tag("")
+
+                        ForEach(
+                            browserNames,
+                            id: \.self
+                        ) { name in
+                            Text(name)
+                                .tag(name)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(height: 150)
+                    .clipped()
+                    .irOLEDControlSurface(
+                        cornerRadius: 14
+                    )
+                } else {
+                    HStack(
+                        alignment: .top,
+                        spacing: 10
+                    ) {
+                        ScrollView {
+                            LazyVStack(
+                                spacing: 4
+                            ) {
+                                ForEach(
+                                    availableBrowseLetters,
+                                    id: \.self
+                                ) { letter in
+                                    Button {
+                                        selectedBrowseLetter =
+                                            letter
+                                        IRHaptics.tap()
+                                    } label: {
+                                        Text(letter)
+                                            .font(
+                                                .caption.bold()
+                                            )
+                                            .frame(
+                                                width: 34,
+                                                height: 30
+                                            )
+                                            .foregroundStyle(
+                                                selectedBrowseLetter
+                                                    == letter
+                                                ? Color.white
+                                                : Color.red
+                                            )
+                                            .background(
+                                                selectedBrowseLetter
+                                                    == letter
+                                                ? Color.red
+                                                : Color.clear,
+                                                in:
+                                                    RoundedRectangle(
+                                                        cornerRadius:
+                                                            8
+                                                    )
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .frame(
+                            width: 42,
+                            height: 250
+                        )
+
+                        Divider()
+                            .overlay(
+                                Color.white
+                                    .opacity(0.10)
+                            )
+
+                        ScrollView {
+                            LazyVStack(
+                                alignment: .leading,
+                                spacing: 4
+                            ) {
+                                ForEach(
+                                    visibleBrowserNames,
+                                    id: \.self
+                                ) { name in
+                                    Button {
+                                        selectedBrowseName =
+                                            selectedBrowseName
+                                                == name
+                                            ? ""
+                                            : name
+
+                                        searchText = ""
+                                        normalizeSelection()
+                                        IRHaptics.tap()
+                                    } label: {
+                                        HStack {
+                                            Text(name)
+                                                .font(
+                                                    .subheadline
+                                                )
+                                                .foregroundStyle(
+                                                    .primary
+                                                )
+                                                .multilineTextAlignment(
+                                                    .leading
+                                                )
+
+                                            Spacer()
+
+                                            Image(
+                                                systemName:
+                                                    selectedBrowseName
+                                                        == name
+                                                    ? "checkmark.circle.fill"
+                                                    : "chevron.right"
+                                            )
+                                            .font(
+                                                selectedBrowseName
+                                                    == name
+                                                ? .body
+                                                : .caption2
+                                            )
+                                            .foregroundStyle(
+                                                selectedBrowseName
+                                                    == name
                                                 ? Color.red
                                                 : Color.secondary
-                                                    .opacity(
-                                                        0.35
-                                                    )
+                                            )
+                                        }
+                                        .padding(
+                                            .horizontal,
+                                            10
+                                        )
+                                        .padding(
+                                            .vertical,
+                                            9
                                         )
                                         .background(
-                                            selectedBrowseLetter
-                                                == letter
+                                            selectedBrowseName
+                                                == name
                                             ? Color.red
+                                                .opacity(
+                                                    0.12
+                                                )
                                             : Color.clear,
                                             in:
                                                 RoundedRectangle(
                                                     cornerRadius:
-                                                        8
+                                                        10
                                                 )
                                         )
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(!enabled)
-                            }
-                        }
-                    }
-                    .frame(
-                        width: 42,
-                        height: 250
-                    )
-
-                    Divider()
-
-                    ScrollView {
-                        LazyVStack(
-                            alignment: .leading,
-                            spacing: 4
-                        ) {
-                            ForEach(
-                                visibleBrowserNames,
-                                id: \.self
-                            ) { name in
-                                Button {
-                                    selectedBrowseName =
-                                        selectedBrowseName
-                                            == name
-                                        ? ""
-                                        : name
-
-                                    searchText = ""
-                                    normalizeSelection()
-                                    IRHaptics.tap()
-                                } label: {
-                                    HStack {
-                                        Text(name)
-                                            .font(
-                                                .subheadline
-                                            )
-                                            .foregroundStyle(
-                                                .primary
-                                            )
-                                            .multilineTextAlignment(
-                                                .leading
-                                            )
-
-                                        Spacer()
-
-                                        if selectedBrowseName
-                                            == name
-                                        {
-                                            Image(
-                                                systemName:
-                                                    "checkmark.circle.fill"
-                                            )
-                                            .foregroundStyle(
-                                                .red
-                                            )
-                                        } else {
-                                            Image(
-                                                systemName:
-                                                    "chevron.right"
-                                            )
-                                            .font(
-                                                .caption2
-                                            )
-                                            .foregroundStyle(
-                                                .secondary
-                                            )
-                                        }
                                     }
-                                    .padding(
-                                        .horizontal,
-                                        10
-                                    )
-                                    .padding(
-                                        .vertical,
-                                        9
-                                    )
-                                    .background(
-                                        selectedBrowseName
-                                            == name
-                                        ? Color.red
-                                            .opacity(
-                                                0.12
-                                            )
-                                        : Color.clear,
-                                        in:
-                                            RoundedRectangle(
-                                                cornerRadius:
-                                                    10
-                                            )
-                                    )
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
+                        .frame(height: 250)
                     }
-                    .frame(height: 250)
                 }
 
                 if !selectedBrowseName.isEmpty {
@@ -1141,17 +1228,15 @@ private struct ManualCodeView: View {
         }
 
         if
-            !browserNames.contains(
-                where: {
-                    firstLetter(of: $0)
-                        == selectedBrowseLetter
-                }
-            ),
+            !availableBrowseLetters
+                .contains(
+                    selectedBrowseLetter
+                ),
             let first =
-                browserNames.first
+                availableBrowseLetters.first
         {
             selectedBrowseLetter =
-                firstLetter(of: first)
+                first
         }
     }
 
@@ -1550,6 +1635,7 @@ struct DeviceCategoryPicker: View {
             }
         }
         .pickerStyle(.segmented)
+                    .irOLEDControlSurface()
         .disabled(disabled)
     }
 }
@@ -2135,6 +2221,7 @@ private struct LearnIRView: View {
                 }
             }
             .pickerStyle(.segmented)
+                    .irOLEDControlSurface()
 
             Text(
                 carrierHz == 0
