@@ -52,6 +52,7 @@ struct IRBackupDocument: FileDocument {
     }
 }
 
+@MainActor
 enum IRBackupCodec {
     static func encode(
         savedDevices: SavedDeviceStore,

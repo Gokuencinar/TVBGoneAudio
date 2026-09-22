@@ -440,7 +440,7 @@ struct PremiumSavedDeviceCard: View {
             .buttonStyle(
                 .borderedProminent
             )
-            .buttonBorderShape(.circle)
+            .clipShape(Circle())
             .tint(.red)
         }
         .padding()
