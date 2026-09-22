@@ -775,62 +775,7 @@ private struct ManualCodeView: View {
 
                     localBrandBrowser
 
-                    if filteredCodes.isEmpty {
-                        EmptyStateView(
-                            title: "Sin códigos",
-                            systemImage: "magnifyingglass",
-                            message: "Prueba con otra búsqueda u otro origen."
-                        )
-                    } else {
-                        VStack(spacing: 0) {
-                            Text("Ruleta de códigos")
-                                .font(.headline)
-                                .padding(.top)
-
-                            Picker(
-                                "Código",
-                                selection: Binding(
-                                    get: {
-                                        selectedCode?.id
-                                            ?? filteredCodes[0].id
-                                    },
-                                    set: { selectedCodeID = $0 }
-                                )
-                            ) {
-                                ForEach(filteredCodes) { code in
-                                    Text(code.displayName)
-                                        .lineLimit(1)
-                                        .tag(code.id)
-                                }
-                            }
-                            .pickerStyle(.wheel)
-                            .frame(height: 180)
-                        }
-                        .irCard(cornerRadius: 20)
-
-                        if let code = selectedCode {
-                            CodeDetailsCard(code: code)
-
-                            HStack(spacing: 12) {
-                                Button {
-                                    transmitter.send(code: code)
-                                } label: {
-                                    Label("PROBAR", systemImage: "wave.3.right")
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.red)
-
-                                Button {
-                                    showSaveSheet = true
-                                } label: {
-                                    Label("GUARDAR", systemImage: "star")
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                    }
+                    codeSelector
                 }
                 .padding()
                 .onAppear {
@@ -861,8 +806,231 @@ private struct ManualCodeView: View {
                     }
                 }
             }
+            .irOLEDScreen()
             .navigationTitle("Seleccionar código")
             .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    @ViewBuilder
+    private var codeSelector: some View {
+        if filteredCodes.isEmpty {
+            EmptyStateView(
+                title: "Sin códigos",
+                systemImage:
+                    "magnifyingglass",
+                message:
+                    "Prueba con otra búsqueda u otro origen."
+            )
+        } else {
+            if localBrowserPresentation
+                .wrappedValue == .list
+            {
+                VStack(
+                    alignment: .leading,
+                    spacing: 10
+                ) {
+                    HStack {
+                        Label(
+                            "Códigos",
+                            systemImage:
+                                "list.bullet"
+                        )
+                        .font(.headline)
+
+                        Spacer()
+
+                        Text(
+                            "\(filteredCodes.count)"
+                        )
+                        .font(
+                            .caption
+                                .monospacedDigit()
+                        )
+                        .foregroundStyle(
+                            .secondary
+                        )
+                    }
+
+                    ScrollView {
+                        LazyVStack(
+                            spacing: 6
+                        ) {
+                            ForEach(
+                                filteredCodes
+                            ) { code in
+                                Button {
+                                    selectedCodeID =
+                                        code.id
+                                    IRHaptics.tap()
+                                } label: {
+                                    HStack(
+                                        spacing: 10
+                                    ) {
+                                        VStack(
+                                            alignment:
+                                                .leading,
+                                            spacing: 3
+                                        ) {
+                                            Text(
+                                                code.displayName
+                                            )
+                                            .font(
+                                                .subheadline
+                                                    .bold()
+                                            )
+                                            .foregroundStyle(
+                                                .primary
+                                            )
+                                            .lineLimit(2)
+
+                                            Text(
+                                                "\(code.sourceLabel) · \((code.carrierHz == 0 ? 38_000 : code.carrierHz) / 1000) kHz"
+                                            )
+                                            .font(
+                                                .caption2
+                                            )
+                                            .foregroundStyle(
+                                                .secondary
+                                            )
+                                        }
+
+                                        Spacer()
+
+                                        Image(
+                                            systemName:
+                                                selectedCode?.id
+                                                    == code.id
+                                                ? "checkmark.circle.fill"
+                                                : "chevron.right"
+                                        )
+                                        .foregroundStyle(
+                                            selectedCode?.id
+                                                == code.id
+                                            ? Color.red
+                                            : Color.secondary
+                                        )
+                                    }
+                                    .padding(
+                                        .horizontal,
+                                        10
+                                    )
+                                    .padding(
+                                        .vertical,
+                                        9
+                                    )
+                                    .background(
+                                        selectedCode?.id
+                                            == code.id
+                                        ? Color.red
+                                            .opacity(
+                                                0.12
+                                            )
+                                        : Color.clear,
+                                        in:
+                                            RoundedRectangle(
+                                                cornerRadius:
+                                                    11
+                                            )
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .frame(
+                        maxHeight: 320
+                    )
+                }
+                .padding()
+                .irCard(
+                    cornerRadius: 20
+                )
+            } else {
+                VStack(spacing: 0) {
+                    Text(
+                        "Ruleta de códigos"
+                    )
+                    .font(.headline)
+                    .padding(.top)
+
+                    Picker(
+                        "Código",
+                        selection:
+                            Binding(
+                                get: {
+                                    selectedCode?.id
+                                        ?? filteredCodes[0].id
+                                },
+                                set: {
+                                    selectedCodeID =
+                                        $0
+                                    IRHaptics.tap()
+                                }
+                            )
+                    ) {
+                        ForEach(
+                            filteredCodes
+                        ) { code in
+                            Text(
+                                code.displayName
+                            )
+                            .lineLimit(1)
+                            .tag(code.id)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(height: 180)
+                }
+                .irCard(
+                    cornerRadius: 20
+                )
+            }
+
+            if let code =
+                selectedCode
+            {
+                CodeDetailsCard(
+                    code: code
+                )
+
+                HStack(spacing: 12) {
+                    Button {
+                        transmitter.send(
+                            code: code
+                        )
+                    } label: {
+                        Label(
+                            "PROBAR",
+                            systemImage:
+                                "wave.3.right"
+                        )
+                        .frame(
+                            maxWidth:
+                                .infinity
+                        )
+                    }
+                    .buttonStyle(
+                        .borderedProminent
+                    )
+                    .tint(.red)
+
+                    Button {
+                        showSaveSheet = true
+                    } label: {
+                        Label(
+                            "GUARDAR",
+                            systemImage:
+                                "star"
+                        )
+                        .frame(
+                            maxWidth:
+                                .infinity
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
         }
     }
 
