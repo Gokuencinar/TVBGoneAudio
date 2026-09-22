@@ -677,7 +677,7 @@ class MainActivity : Activity() {
         }
         val scroll = ScrollView(this).apply {
             setBackgroundColor(Color.BLACK)
-            addView(body, ScrollView.LayoutParams(
+            addView(body, FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ))
