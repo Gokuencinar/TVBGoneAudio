@@ -918,8 +918,6 @@ private struct DiagnosticsView: View {
                     )
 
                     UpdateCenterView(updater: updater)
-
-                    AppIconPickerView()
                 }
                 .padding()
             }

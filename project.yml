@@ -29,14 +29,12 @@ targets:
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIconRemote AppIconLED AppIconGradient"
-        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: "YES"
     info:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: IR Universal
-        CFBundleShortVersionString: "4.1"
-        CFBundleVersion: "11"
+        CFBundleShortVersionString: "4.2"
+        CFBundleVersion: "12"
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations:

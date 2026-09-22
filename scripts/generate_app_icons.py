@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate primary + alternate iOS app icons for IR Universal.
+"""Generate the primary iOS app icon for IR Universal.
 
 Uses only the Python standard library plus macOS `sips` for resizing, so the
 GitHub Actions runner does not need Pillow or ImageMagick.
@@ -14,16 +14,8 @@ SIZE = 1024
 
 ICON_SETS = {
     "AppIcon": "power",
-    "AppIconRemote": "remote",
-    "AppIconLED": "led",
-    "AppIconGradient": "gradient",
 }
-PREVIEWS = {
-    "IconPreviewPower": "AppIcon",
-    "IconPreviewRemote": "AppIconRemote",
-    "IconPreviewLED": "AppIconLED",
-    "IconPreviewGradient": "AppIconGradient",
-}
+PREVIEWS = {}
 SPECS = [
     ("20x20", "2x", 40), ("20x20", "3x", 60),
     ("29x29", "2x", 58), ("29x29", "3x", 87),
@@ -162,6 +154,6 @@ def main():
         fn=f"{image_name}.png"; resize(masters[set_name],d/fn,256)
         data={"images":[{"idiom":"universal","filename":fn,"scale":"1x"}],"info":{"author":"xcode","version":1}}
         (d/"Contents.json").write_text(json.dumps(data,indent=2)+"\n")
-    print("Generated IR Universal primary and alternate app icons")
+    print("Generated IR Universal primary app icon")
 
 if __name__ == "__main__": main()
