@@ -1,6 +1,6 @@
-# Changelog — IR Universal
+# Changelog — TVBGoneAudio
 
-Historial de cambios del proyecto **IR Universal / TVBGoneAudio**.
+Historial de cambios de **TVBGoneAudio**.
 
 **Compatibilidad:** iOS 16.0 o posterior. Las IPA publicadas están destinadas principalmente a instalación mediante TrollStore.
 
@@ -248,4 +248,4 @@ Antes de v6, el proyecto ya incluía la base funcional del transmisor IR por aud
 
 ---
 
-Las Releases recientes se generan automáticamente mediante GitHub Actions y contienen la IPA destinada a instalación/actualización mediante TrollStore.
+Las Releases recientes de TVBGoneAudio se generan automáticamente mediante GitHub Actions y contienen la IPA destinada a instalación/actualización mediante TrollStore.
