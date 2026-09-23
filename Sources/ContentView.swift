@@ -1687,9 +1687,46 @@ private struct DiagnosticsView: View {
                         )
 
                         Label(
-                            "Volumen multimedia: 100 %",
+                            "Volumen multimedia: \(Int((transmitter.outputVolume * 100).rounded())) %",
                             systemImage: "speaker.wave.3.fill"
                         )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(
+                        .thinMaterial,
+                        in: RoundedRectangle(cornerRadius: 18)
+                    )
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Modo de transmisión")
+                            .font(.headline)
+
+                        Picker(
+                            "Modo de transmisión",
+                            selection: $transmitter.transmissionMode
+                        ) {
+                            ForEach(IRTransmissionMode.allCases) { mode in
+                                Text(mode.title)
+                                    .tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .irOLEDControlSurface()
+
+                        Text(transmitter.transmissionMode.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if transmitter.sampleRate > 0
+                            && transmitter.sampleRate < 48_000 {
+                            Label(
+                                "Salida negociada a \(Int(transmitter.sampleRate)) Hz. 40 kHz queda cerca del límite de la salida de audio y puede tener menos alcance.",
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
@@ -1708,8 +1745,19 @@ private struct DiagnosticsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                        HStack {
-                            ForEach([36_000, 38_000, 40_000], id: \.self) { hz in
+                        LazyVGrid(
+                            columns: [
+                                GridItem(
+                                    .adaptive(minimum: 84),
+                                    spacing: 8
+                                )
+                            ],
+                            spacing: 8
+                        ) {
+                            ForEach(
+                                [36_000, 37_000, 38_000, 39_000, 40_000],
+                                id: \.self
+                            ) { hz in
                                 Button("\(hz / 1000) kHz") {
                                     transmitter.testCarrier(hz: hz)
                                 }
