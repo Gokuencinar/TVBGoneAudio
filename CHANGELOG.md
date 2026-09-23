@@ -4,6 +4,19 @@ Historial de cambios del proyecto **IR Universal / TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
+## 5.6 — Build 1018 — 2026-09-23
+
+- Añadido selector de transmisión **Compatible / Máximo alcance**.
+- El modo Máximo alcance aumenta la energía media de la portadora manteniendo el pico digital dentro de ±1.
+- Cada ráfaga IR comienza en el pico de la senoide en lugar del cruce por cero.
+- Las portadoras de hasta 40 kHz dejan de descartarse innecesariamente con salidas de 44,1 kHz cuando siguen por debajo de Nyquist.
+- Diagnóstico mejorado:
+  - muestra el volumen multimedia real;
+  - avisa cuando el accesorio negocia una frecuencia inferior a 48 kHz;
+  - explica la posible pérdida de alcance cerca de 40 kHz.
+- La prueba de portadora ahora incluye **36, 37, 38, 39 y 40 kHz** para facilitar la calibración del dongle.
+- Se mantiene el modo Compatible para priorizar fidelidad y compatibilidad con accesorios sensibles.
+
 ## 5.5 — Build 1017 — 2026-09-22
 
 - Rediseño final del navegador local en modo **Lista**.
