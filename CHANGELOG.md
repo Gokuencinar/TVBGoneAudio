@@ -1,5 +1,7 @@
 # Changelog — TVBGoneAudio
 
+**TVBGoneAudio** es una aplicación para iOS que permite enviar señales infrarrojas a televisores y otros equipos compatibles mediante un adaptador IR conectado a la salida de audio.
+
 Historial de cambios de **TVBGoneAudio**.
 
 **Compatibilidad:** iOS 16.0 o posterior. Las IPA publicadas están destinadas principalmente a instalación mediante TrollStore.
