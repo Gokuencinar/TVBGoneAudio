@@ -41,3 +41,5 @@ jobs:
               fi
             done
           done
+
+# Trigger normalization on creation follow-up.
