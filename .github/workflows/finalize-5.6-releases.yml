@@ -1,0 +1,56 @@
+name: Finalize TVBGoneAudio 5.6 releases
+
+on:
+  push:
+    paths:
+      - ".github/workflows/finalize-5.6-releases.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove duplicate builds and refresh final notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for tag in v5.6-b1019 v5.6-b1020; do
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release delete "$tag" --cleanup-tag --yes
+            fi
+          done
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          match = re.search(
+              r"^## 5\.6(?:[^\n]*)\n(.*?)(?=^## |\Z)",
+              changelog,
+              flags=re.MULTILINE | re.DOTALL,
+          )
+          body = match.group(1).strip() if match else "Actualización de TVBGoneAudio 5.6."
+          notes = (
+              "TVBGoneAudio permite controlar televisores y otros dispositivos IR "
+              "mediante un adaptador infrarrojo conectado a la salida de audio.\n\n"
+              + body
+              + "\n\n### Compatibilidad\n"
+                "- iOS 16.0 o posterior.\n"
+                "- IPA sin firmar, destinada principalmente a instalación mediante TrollStore.\n"
+          )
+          Path("/tmp/release-notes.md").write_text(notes, encoding="utf-8")
+          PY
+
+          gh release edit v5.6-b1021 \
+            --title "TVBGoneAudio 5.6 (1021)" \
+            --notes-file /tmp/release-notes.md \
+            --latest
