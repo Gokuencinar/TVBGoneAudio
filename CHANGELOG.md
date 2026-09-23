@@ -2,9 +2,13 @@
 
 Historial de cambios del proyecto **IR Universal / TVBGoneAudio**.
 
+**Compatibilidad:** iOS 16.0 o posterior. Las IPA publicadas están destinadas principalmente a instalación mediante TrollStore.
+
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
 ## 5.6 — Build 1018 — 2026-09-23
+
+### Novedades y cambios
 
 - Añadido selector de transmisión **Compatible / Máximo alcance**.
 - El modo Máximo alcance aumenta la energía media de la portadora manteniendo el pico digital dentro de ±1.
@@ -19,6 +23,8 @@ Historial de cambios del proyecto **IR Universal / TVBGoneAudio**.
 
 ## 5.5 — Build 1017 — 2026-09-22
 
+### Novedades y cambios
+
 - Rediseño final del navegador local en modo **Lista**.
 - Eliminado el bloque de códigos duplicado que aparecía debajo de «Explorar marcas».
 - En modo Lista, la navegación ocurre dentro de un único panel:
@@ -31,12 +37,16 @@ Historial de cambios del proyecto **IR Universal / TVBGoneAudio**.
 
 ## 5.4 — Build 1016 — 2026-09-22
 
+### Novedades y cambios
+
 - Separación inicial del comportamiento entre **Lista** y **Ruleta**.
 - En Lista se muestran códigos en formato de lista.
 - En Ruleta se mantiene el picker de rueda.
 - Integración adicional del selector de códigos con el tema OLED.
 
 ## 5.3 — Build 1015 — 2026-09-22
+
+### Novedades y cambios
 
 - El índice A–Z muestra únicamente letras que realmente contienen marcas.
 - Añadido selector persistente **Lista / Ruleta**.
@@ -50,6 +60,8 @@ Historial de cambios del proyecto **IR Universal / TVBGoneAudio**.
 
 ## 5.2 — Build 1014 — 2026-09-22
 
+### Novedades y cambios
+
 - Navegación A–Z añadida al selector local de **Códigos**.
 - Compatible con los filtros:
   - Todos;
@@ -61,6 +73,8 @@ Historial de cambios del proyecto **IR Universal / TVBGoneAudio**.
 
 ## 5.1 — Build 1013 — 2026-09-22
 
+### Novedades y cambios
+
 - Navegador de marcas A–Z para la biblioteca IR online.
 - Índice de marcas generado dinámicamente desde las bases online.
 - Conservada la ruleta de marcas.
@@ -71,6 +85,8 @@ Historial de cambios del proyecto **IR Universal / TVBGoneAudio**.
   - opción para activarlo/desactivarlo desde Diagnóstico.
 
 ## 5.0 — Build 1012 — 2026-09-22
+
+### Novedades y cambios
 
 Gran actualización de experiencia de uso.
 
@@ -97,6 +113,8 @@ Gran actualización de experiencia de uso.
 
 ## 4.2 — Build 1010 — 2026-09-22
 
+### Novedades y cambios
+
 - Eliminada la función de cambio dinámico de icono.
 - Retirados los iconos alternativos.
 - Eliminado el uso de `setAlternateIconName`.
@@ -104,6 +122,8 @@ Gran actualización de experiencia de uso.
 - La app vuelve a utilizar un único icono estable.
 
 ## 4.1 — Build 1009 — 2026-09-22
+
+### Novedades y cambios
 
 - Añadido actualizador integrado.
 - Comprobación automática de nuevas versiones al abrir la app.
@@ -113,6 +133,8 @@ Gran actualización de experiencia de uso.
 - Comparación de versión y build para detectar actualizaciones.
 
 ## 4.0 — Build 10
+
+### Novedades y cambios
 
 - Biblioteca IR online con búsqueda por marca y modelo.
 - Fuentes:
@@ -130,6 +152,8 @@ Gran actualización de experiencia de uso.
 
 ## 3.1 — Build 9
 
+### Novedades y cambios
+
 - Corregido el icono de la pestaña Aprender en iOS 16 usando `mic.fill`.
 - Nuevo icono Power + ondas IR.
 - Añadido modo de portadora **Auto**.
@@ -141,6 +165,8 @@ Gran actualización de experiencia de uso.
 - Diagnóstico ampliado para explicar volumen, balance y Audio mono.
 
 ## 3.0 — Build 8 — «IR Studio»
+
+### Novedades y cambios
 
 - Flujo avanzado de aprendizaje IR.
 - Captura normal y captura validada x3.
@@ -164,6 +190,8 @@ Gran actualización de experiencia de uso.
 
 ## v7 — Learn IR
 
+### Novedades y cambios
+
 - Primera implementación del flujo de aprendizaje IR.
 - Captura PCM desde una entrada de audio compatible.
 - Detección de bordes y reconstrucción de timings RAW.
@@ -173,6 +201,8 @@ Gran actualización de experiencia de uso.
 - Se documenta que el emisor estéreo por sí solo es de salida y no puede aprender.
 
 ## v6
+
+### Novedades y cambios
 
 - Nueva interfaz principal con:
   - Control;
@@ -195,6 +225,8 @@ Gran actualización de experiencia de uso.
   **Universal → TV-B-Gone → Flipper-IRDB**.
 
 ## Historial temprano
+
+### Base funcional
 
 Antes de v6, el proyecto ya incluía la base funcional del transmisor IR por audio:
 
