@@ -587,7 +587,7 @@ struct IRWelcomeView: View {
 
             VStack(spacing: 18) {
                 HStack {
-                    Text("IR UNIVERSAL")
+                    Text("TVBGONEAUDIO")
                         .font(.caption.bold())
                         .tracking(2)
 
