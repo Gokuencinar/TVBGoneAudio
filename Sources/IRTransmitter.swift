@@ -1,6 +1,31 @@
 import AVFoundation
 import Foundation
 
+enum IRTransmissionMode: String, CaseIterable, Identifiable {
+    case compatible
+    case maximumRange
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .compatible:
+            return "Compatible"
+        case .maximumRange:
+            return "Máximo alcance"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .compatible:
+            return "Senoide a escala completa. Prioriza la fidelidad de la portadora y la compatibilidad entre accesorios."
+        case .maximumRange:
+            return "Aumenta la energía media de la señal mediante limitación controlada. Puede mejorar el alcance en dongles de audio; si un equipo responde peor, vuelve a Compatible."
+        }
+    }
+}
+
 @MainActor
 final class IRTransmitter: ObservableObject {
     @Published private(set) var isScanning = false
@@ -23,6 +48,7 @@ final class IRTransmitter: ObservableObject {
     @Published private(set) var transmissionPulse = 0
     @Published private(set) var currentCarrierHz = 0
     @Published private(set) var outputVolume: Float = 0
+    @Published var transmissionMode: IRTransmissionMode = .compatible
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
@@ -435,6 +461,10 @@ final class IRTransmitter: ObservableObject {
             return "Sube el volumen multimedia al 100 % para obtener el máximo alcance IR."
         }
 
+        if rate < 48_000 {
+            return "El accesorio está usando \(Int(rate)) Hz. Las portadoras cercanas a 40 kHz son válidas, pero pueden perder alcance por estar cerca del límite de la salida de audio."
+        }
+
         return nil
     }
 
@@ -450,7 +480,7 @@ final class IRTransmitter: ObservableObject {
         let audioTone =
             carrier / 2.0
 
-        return audioTone <= sampleRate * 0.45
+        return audioTone < sampleRate * 0.49
     }
 
     private func scheduleCurrent(
@@ -643,8 +673,11 @@ final class IRTransmitter: ObservableObject {
             * audioHz
             / sampleRate
 
-        let amplitude: Float =
+        let compatibleAmplitude: Float =
             0.999
+
+        let maximumRangeDrive: Float =
+            1.35
 
         var cursor = Int(
             round(
@@ -675,12 +708,37 @@ final class IRTransmitter: ObservableObject {
                 segmentIndex % 2 == 0
 
             if isMark {
-                var phase = 0.0
+                // Arrancar en el pico evita desperdiciar el primer sample
+                // de cada ráfaga en el cruce por cero.
+                var phase =
+                    Double.pi / 2.0
 
                 while cursor < end {
-                    let sample =
-                        amplitude
-                        * Float(sin(phase))
+                    let sine =
+                        Float(sin(phase))
+
+                    let sample: Float
+
+                    switch transmissionMode {
+                    case .compatible:
+                        sample =
+                            compatibleAmplitude
+                            * sine
+
+                    case .maximumRange:
+                        // Mantiene el mismo pico digital (±1) pero aumenta
+                        // la energía media de la portadora. El DAC/filtro
+                        // del dongle suaviza la componente de alta frecuencia.
+                        sample =
+                            max(
+                                -1.0,
+                                min(
+                                    1.0,
+                                    sine
+                                    * maximumRangeDrive
+                                )
+                            )
+                    }
 
                     left[cursor] = sample
                     right[cursor] = -sample
