@@ -100,7 +100,7 @@ struct ContentView: View {
             Button("Más tarde", role: .cancel) {}
         } message: {
             Text(
-                "Está disponible IR Universal \(updater.availableVersionText). TrollStore descargará e instalará la nueva IPA."
+                "Está disponible TVBGoneAudio \(updater.availableVersionText). TrollStore descargará e instalará la nueva IPA."
             )
         }
         .onAppear {
@@ -160,7 +160,7 @@ private struct ControlView: View {
                 .padding()
             }
             .irOLEDScreen()
-            .navigationTitle("IR Universal")
+            .navigationTitle("TVBGoneAudio")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 transmitter.inspectOutputRoute()
@@ -216,7 +216,7 @@ private struct ControlView: View {
                 .font(.caption.bold())
                 .foregroundStyle(.red)
             } else {
-                Text("IR UNIVERSAL")
+                Text("TVBGONEAUDIO")
                     .font(.caption.bold())
                     .tracking(1.8)
                     .foregroundStyle(.secondary)
