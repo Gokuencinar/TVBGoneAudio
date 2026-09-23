@@ -93,10 +93,10 @@ jobs:
           if match:
               body = match.group(1).strip()
           else:
-              body = "Compilación automática de IR Universal."
+              body = "Compilación automática de TVBGoneAudio."
 
           intro = (
-              "IR Universal permite controlar televisores y otros dispositivos IR "
+              "TVBGoneAudio permite controlar televisores y otros dispositivos IR "
               "mediante un adaptador infrarrojo conectado a la salida de audio.\n\n"
           )
           compatibility = (
@@ -133,11 +133,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${MARKETING_VERSION}-b${CI_BUILD}"
-          TITLE="IR Universal ${MARKETING_VERSION} (${CI_BUILD})"
+          TITLE="TVBGoneAudio ${MARKETING_VERSION} (${CI_BUILD})"
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG"               TVBGoneAudio.ipa#IR-Universal.ipa               --clobber
+            gh release upload "$TAG"               TVBGoneAudio.ipa#TVBGoneAudio.ipa               --clobber
             gh release edit "$TAG"               --title "$TITLE"               --notes-file release-notes.md               --latest
           else
-            gh release create "$TAG"               TVBGoneAudio.ipa#IR-Universal.ipa               --title "$TITLE"               --notes-file release-notes.md               --latest
+            gh release create "$TAG"               TVBGoneAudio.ipa#TVBGoneAudio.ipa               --title "$TITLE"               --notes-file release-notes.md               --latest
           fi
