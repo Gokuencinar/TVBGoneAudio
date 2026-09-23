@@ -75,6 +75,41 @@ jobs:
           echo "CI_BUILD=$CI_BUILD" >> "$GITHUB_ENV"
           echo "MARKETING_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PLIST")" >> "$GITHUB_ENV"
 
+      - name: Build release notes from changelog
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["MARKETING_VERSION"]
+          changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          match = re.search(
+              rf"^## {re.escape(version)}(?:[^\n]*)\n(.*?)(?=^## |\Z)",
+              changelog,
+              flags=re.MULTILINE | re.DOTALL,
+          )
+
+          if match:
+              body = match.group(1).strip()
+          else:
+              body = "Compilación automática de IR Universal."
+
+          intro = (
+              "IR Universal permite controlar televisores y otros dispositivos IR "
+              "mediante un adaptador infrarrojo conectado a la salida de audio.\n\n"
+          )
+          compatibility = (
+              "\n\n### Compatibilidad\n"
+              "- iOS 16.0 o posterior.\n"
+              "- IPA sin firmar, destinada principalmente a instalación mediante TrollStore.\n"
+          )
+          Path("release-notes.md").write_text(
+              intro + body + compatibility,
+              encoding="utf-8",
+          )
+          PY
+
       - name: Package IPA
         run: |
           rm -rf Payload TVBGoneAudio.ipa
@@ -102,7 +137,7 @@ jobs:
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG"               TVBGoneAudio.ipa#IR-Universal.ipa               --clobber
-            gh release edit "$TAG"               --title "$TITLE"               --notes "Compilación automática de IR Universal para instalación mediante TrollStore."               --latest
+            gh release edit "$TAG"               --title "$TITLE"               --notes-file release-notes.md               --latest
           else
-            gh release create "$TAG"               TVBGoneAudio.ipa#IR-Universal.ipa               --title "$TITLE"               --notes "Compilación automática de IR Universal para instalación mediante TrollStore."               --latest
+            gh release create "$TAG"               TVBGoneAudio.ipa#IR-Universal.ipa               --title "$TITLE"               --notes-file release-notes.md               --latest
           fi
