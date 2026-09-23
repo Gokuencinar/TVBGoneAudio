@@ -6,7 +6,7 @@ Historial de cambios de **TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
-## 5.6 — Build 1018 — 2026-09-23
+## 5.6 — Build 1021 — 2026-09-23
 
 ### Novedades y cambios
 
@@ -20,6 +20,7 @@ Historial de cambios de **TVBGoneAudio**.
   - explica la posible pérdida de alcance cerca de 40 kHz.
 - La prueba de portadora ahora incluye **36, 37, 38, 39 y 40 kHz** para facilitar la calibración del dongle.
 - Se mantiene el modo Compatible para priorizar fidelidad y compatibilidad con accesorios sensibles.
+- Nombre visible unificado como **TVBGoneAudio** en la app, el actualizador, las releases y el archivo IPA.
 
 ## 5.5 — Build 1017 — 2026-09-22
 
