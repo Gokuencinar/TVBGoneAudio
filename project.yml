@@ -32,7 +32,7 @@ targets:
     info:
       path: Sources/Info.plist
       properties:
-        CFBundleDisplayName: IR Universal
+        CFBundleDisplayName: TVBGoneAudio
         CFBundleShortVersionString: "5.6"
         CFBundleVersion: "19"
         UILaunchScreen: {}
@@ -40,6 +40,6 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIApplicationSupportsIndirectInputEvents: true
-        NSMicrophoneUsageDescription: "IR Universal usa la entrada de audio para capturar señales de un receptor infrarrojo externo y aprender botones de mandos a distancia."
+        NSMicrophoneUsageDescription: "TVBGoneAudio usa la entrada de audio para capturar señales de un receptor infrarrojo externo y aprender botones de mandos a distancia."
     scheme:
       gatherCoverageData: false
