@@ -4,6 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - "Sources/**"
+      - "project.yml"
+      - "scripts/**"
 
 permissions:
   contents: write
