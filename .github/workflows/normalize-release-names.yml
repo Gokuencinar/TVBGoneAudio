@@ -1,0 +1,43 @@
+name: Normalize TVBGoneAudio release names
+
+on:
+  push:
+    paths:
+      - ".github/workflows/normalize-release-names.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Normalize existing releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate |
+          jq -c '.[]' |
+          while read -r release; do
+            release_id="$(jq -r '.id' <<<"$release")"
+            old_name="$(jq -r '.name // ""' <<<"$release")"
+            old_body="$(jq -r '.body // ""' <<<"$release")"
+
+            new_name="${old_name//IR Universal/TVBGoneAudio}"
+            new_body="${old_body//IR Universal/TVBGoneAudio}"
+
+            gh api --method PATCH               "repos/${GITHUB_REPOSITORY}/releases/${release_id}"               -f name="$new_name"               -f body="$new_body" >/dev/null
+
+            jq -c '.assets[]?' <<<"$release" |
+            while read -r asset; do
+              asset_id="$(jq -r '.id' <<<"$asset")"
+              label="$(jq -r '.label // ""' <<<"$asset")"
+              if [[ "$label" == "IR-Universal.ipa" ]]; then
+                gh api --method PATCH                   "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}"                   -f label="TVBGoneAudio.ipa" >/dev/null
+              fi
+            done
+          done
