@@ -170,7 +170,7 @@ final class AppUpdater: ObservableObject {
 
                 if !silent {
                     status =
-                        "IR Universal está actualizado."
+                        "TVBGoneAudio está actualizado."
                 }
             }
         } catch {
