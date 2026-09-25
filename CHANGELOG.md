@@ -8,6 +8,30 @@ Historial de cambios de **TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
+## 5.7 — 2026-09-25
+
+### Novedades y cambios
+
+- Añadido **barrido automático por marca** en el selector local de Códigos.
+- Disponible para:
+  - televisores;
+  - aires acondicionados;
+  - proyectores.
+- El botón aparece cuando la marca seleccionada dispone de **2 o más códigos/mandos**.
+- El barrido recorre exclusivamente los códigos de la marca seleccionada, sin probar el resto de la base.
+- Se mantienen las pruebas manuales uno a uno.
+- Selector de velocidad:
+  - Rápido;
+  - Identificar.
+- Controles durante el barrido:
+  - progreso;
+  - pausa/reanudar;
+  - anterior;
+  - siguiente;
+  - «FUNCIONÓ».
+- Al pulsar «FUNCIONÓ» se conservan los candidatos recientes y puede guardarse el mando/equipo.
+- El motor físico de transmisión IR no cambia; la nueva función reutiliza el escáner existente con un subconjunto de códigos.
+
 ## 5.6 — Build 1021 — 2026-09-23
 
 ### Novedades y cambios

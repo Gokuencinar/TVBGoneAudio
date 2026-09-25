@@ -599,6 +599,10 @@ private struct ManualCodeView: View {
     @State private var showSaveSheet = false
     @State private var selectedBrowseLetter = "A"
     @State private var selectedBrowseName = ""
+    @State private var brandScanPace: ScanPace = .fast
+    @State private var brandScanActive = false
+    @State private var brandWorkedCandidates: [IRCode] = []
+    @State private var showBrandWorkedSheet = false
 
     @AppStorage(
         "irUniversal.localBrowserPresentation"
@@ -676,6 +680,27 @@ private struct ManualCodeView: View {
                 IRHaptics.tap()
             }
         )
+    }
+
+    private var brandScanCodes: [IRCode] {
+        guard
+            !selectedBrowseName.isEmpty
+        else {
+            return []
+        }
+
+        var seen = Set<String>()
+
+        return sourceCodes
+            .filter {
+                browserName(for: $0)
+                    .caseInsensitiveCompare(
+                        selectedBrowseName
+                    ) == .orderedSame
+            }
+            .filter {
+                seen.insert($0.id).inserted
+            }
     }
 
     private var filteredCodes: [IRCode] {
@@ -775,6 +800,8 @@ private struct ManualCodeView: View {
 
                     localBrandBrowser
 
+                    brandScanCard
+
                     codeSelector
                 }
                 .padding()
@@ -782,19 +809,30 @@ private struct ManualCodeView: View {
                     normalizeSelection()
                 }
                 .onChange(of: category) { _ in
+                    stopBrandScanIfNeeded()
                     selectedBrowseName = ""
                     normalizeSelection()
                 }
                 .onChange(of: region) { _ in
+                    stopBrandScanIfNeeded()
                     selectedBrowseName = ""
                     normalizeSelection()
                 }
                 .onChange(of: source) { _ in
+                    stopBrandScanIfNeeded()
                     selectedBrowseName = ""
                     normalizeSelection()
                 }
+                .onChange(of: selectedBrowseName) { _ in
+                    stopBrandScanIfNeeded()
+                }
                 .onChange(of: searchText) { _ in
                     normalizeSelection()
+                }
+                .onChange(of: transmitter.isScanning) { scanning in
+                    if !scanning {
+                        brandScanActive = false
+                    }
                 }
                 .sheet(isPresented: $showSaveSheet) {
                     if let code = selectedCode {
@@ -805,10 +843,286 @@ private struct ManualCodeView: View {
                         )
                     }
                 }
+                .sheet(
+                    isPresented:
+                        $showBrandWorkedSheet
+                ) {
+                    WorkedSheet(
+                        candidates:
+                            brandWorkedCandidates,
+                        category: category,
+                        savedDevices:
+                            savedDevices
+                    )
+                }
             }
             .irOLEDScreen()
             .navigationTitle("Seleccionar código")
             .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    @ViewBuilder
+    private var brandScanCard:
+        some View
+    {
+        if
+            !selectedBrowseName.isEmpty,
+            brandScanCodes.count > 1
+        {
+            VStack(
+                alignment: .leading,
+                spacing: 12
+            ) {
+                HStack {
+                    Label(
+                        "Barrido de \(selectedBrowseName)",
+                        systemImage:
+                            "dot.radiowaves.left.and.right"
+                    )
+                    .font(.headline)
+
+                    Spacer()
+
+                    Text(
+                        "\(brandScanCodes.count) códigos"
+                    )
+                    .font(
+                        .caption
+                            .monospacedDigit()
+                    )
+                    .foregroundStyle(.secondary)
+                }
+
+                Text(
+                    "Recorre únicamente los mandos/códigos disponibles para esta marca."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Picker(
+                    "Velocidad",
+                    selection:
+                        $brandScanPace
+                ) {
+                    ForEach(
+                        ScanPace.allCases
+                    ) { pace in
+                        Text(pace.title)
+                            .tag(pace)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .irOLEDControlSurface()
+                .disabled(
+                    brandScanActive
+                    && transmitter.isScanning
+                )
+
+                if
+                    brandScanActive,
+                    transmitter.isScanning
+                {
+                    ProgressView(
+                        value:
+                            transmitter.progress
+                    )
+
+                    HStack {
+                        Text(
+                            "\(transmitter.sentCount) / \(transmitter.totalCount)"
+                        )
+                        .font(
+                            .caption
+                                .monospacedDigit()
+                        )
+
+                        Spacer()
+
+                        if
+                            transmitter
+                                .currentCarrierHz > 0
+                        {
+                            Text(
+                                "\(transmitter.currentCarrierHz / 1000) kHz"
+                            )
+                            .font(
+                                .caption
+                                    .monospacedDigit()
+                            )
+                            .foregroundStyle(
+                                .secondary
+                            )
+                        }
+                    }
+
+                    if let name =
+                        transmitter
+                            .currentCodeName
+                    {
+                        Text(name)
+                            .font(
+                                .subheadline
+                                    .monospaced()
+                            )
+                            .lineLimit(2)
+                    }
+
+                    HStack(spacing: 10) {
+                        Button {
+                            transmitter.step(-1)
+                        } label: {
+                            Image(
+                                systemName:
+                                    "backward.end.fill"
+                            )
+                            .frame(
+                                maxWidth:
+                                    .infinity
+                            )
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            if
+                                transmitter.isPaused
+                            {
+                                transmitter.resume()
+                            } else {
+                                transmitter.pause()
+                            }
+                        } label: {
+                            Image(
+                                systemName:
+                                    transmitter
+                                        .isPaused
+                                    ? "play.fill"
+                                    : "pause.fill"
+                            )
+                            .frame(
+                                maxWidth:
+                                    .infinity
+                            )
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            transmitter.step(1)
+                        } label: {
+                            Image(
+                                systemName:
+                                    "forward.end.fill"
+                            )
+                            .frame(
+                                maxWidth:
+                                    .infinity
+                            )
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    Button {
+                        brandWorkedCandidates =
+                            transmitter
+                                .markWorked()
+
+                        if let best =
+                            brandWorkedCandidates
+                                .first
+                        {
+                            selectedCodeID =
+                                best.id
+                        }
+
+                        if
+                            !brandWorkedCandidates
+                                .isEmpty
+                        {
+                            showBrandWorkedSheet =
+                                true
+                        }
+                    } label: {
+                        Label(
+                            "FUNCIONÓ",
+                            systemImage:
+                                "checkmark.circle.fill"
+                        )
+                        .font(.headline)
+                        .frame(
+                            maxWidth:
+                                .infinity
+                        )
+                        .padding(
+                            .vertical,
+                            8
+                        )
+                    }
+                    .buttonStyle(
+                        .borderedProminent
+                    )
+                    .tint(.green)
+                }
+
+                Button {
+                    if
+                        brandScanActive,
+                        transmitter.isScanning
+                    {
+                        transmitter.stop()
+                        brandScanActive =
+                            false
+                    } else {
+                        transmitter.start(
+                            codes:
+                                brandScanCodes,
+                            category:
+                                category,
+                            pace:
+                                brandScanPace
+                        )
+
+                        brandScanActive =
+                            transmitter
+                                .isScanning
+                    }
+                } label: {
+                    Label(
+                        brandScanActive
+                            && transmitter
+                                .isScanning
+                        ? "DETENER BARRIDO"
+                        : "BARRER \(selectedBrowseName.uppercased())",
+                        systemImage:
+                            brandScanActive
+                                && transmitter
+                                    .isScanning
+                            ? "stop.fill"
+                            : "bolt.horizontal.circle.fill"
+                    )
+                    .font(.headline)
+                    .frame(
+                        maxWidth: .infinity
+                    )
+                    .padding(
+                        .vertical,
+                        10
+                    )
+                }
+                .buttonStyle(
+                    .borderedProminent
+                )
+                .tint(
+                    brandScanActive
+                        && transmitter
+                            .isScanning
+                    ? .secondary
+                    : .red
+                )
+            }
+            .padding()
+            .irCard(
+                cornerRadius: 20
+            )
         }
     }
 
@@ -1375,6 +1689,15 @@ private struct ManualCodeView: View {
         return alphabet.contains(letter)
             ? letter
             : "#"
+    }
+
+    private func stopBrandScanIfNeeded() {
+        guard brandScanActive else {
+            return
+        }
+
+        transmitter.stop()
+        brandScanActive = false
     }
 
     private func normalizeBrowser() {

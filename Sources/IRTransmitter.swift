@@ -80,20 +80,41 @@ final class IRTransmitter: ObservableObject {
         region: TVRegion,
         pace: ScanPace
     ) {
+        start(
+            codes: IRCodeCatalog.codes(
+                for: category,
+                region: region
+            ),
+            category: category,
+            pace: pace
+        )
+    }
+
+    func start(
+        codes: [IRCode],
+        category: IRDeviceCategory,
+        pace: ScanPace
+    ) {
         stop(resetProgress: true)
 
-        let codes = IRCodeCatalog.codes(
-            for: category,
-            region: region
-        )
-
         guard !codes.isEmpty else {
-            warning = "No hay códigos disponibles para esta categoría."
+            warning = "No hay códigos disponibles para este barrido."
+            return
+        }
+
+        var seen = Set<String>()
+        let uniqueCodes =
+            codes.filter {
+                seen.insert($0.id).inserted
+            }
+
+        guard !uniqueCodes.isEmpty else {
+            warning = "No hay códigos únicos disponibles para este barrido."
             return
         }
 
         currentCategory = category
-        currentCodes = codes
+        currentCodes = uniqueCodes
         currentIndex = 0
         currentPace = pace
         recentCodeIDs = []
