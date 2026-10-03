@@ -166,6 +166,7 @@ struct OnlineIRLibraryView: View {
             }
             .pickerStyle(.segmented)
             .irOLEDControlSurface()
+            .disabled(library.isSearching)
 
             Toggle(
                 "Búsqueda profunda",

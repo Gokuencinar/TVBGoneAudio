@@ -83,6 +83,7 @@ final class OnlineIRLibrary: ObservableObject {
 
     private var memoryCache: [String: Data] = [:]
     private var brandRequestID = UUID()
+    private var searchRequestID = UUID()
     private let maximumCacheBytes = 24_000_000
 
     func loadBrands(
@@ -91,6 +92,8 @@ final class OnlineIRLibrary: ObservableObject {
     ) async {
         let requestID = UUID()
         brandRequestID = requestID
+        searchRequestID = UUID()
+        isSearching = false
 
         isLoadingBrands = true
         brandStatus = "Actualizando marcas…"
@@ -192,6 +195,9 @@ final class OnlineIRLibrary: ObservableObject {
             return
         }
 
+        let requestID = UUID()
+        searchRequestID = requestID
+
         isSearching = true
         status = "Consultando bibliotecas IR…"
         results = []
@@ -233,6 +239,10 @@ final class OnlineIRLibrary: ObservableObject {
             } catch {
                 failures.append("\(source.title): \(error.localizedDescription)")
             }
+        }
+
+        guard searchRequestID == requestID else {
+            return
         }
 
         var seen = Set<String>()

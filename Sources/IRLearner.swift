@@ -266,6 +266,9 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
             guard recorder.record(
                 forDuration: captureSeconds
             ) else {
+                try? FileManager.default
+                    .removeItem(at: url)
+                captureURL = nil
                 status =
                     "No se pudo iniciar la grabación."
                 return
@@ -278,6 +281,15 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
                 "Escuchando… pulsa ahora UNA vez el botón del mando y mantenlo apuntando al receptor."
         } catch {
             isRecording = false
+
+            if let captureURL {
+                try? FileManager.default
+                    .removeItem(
+                        at: captureURL
+                    )
+                self.captureURL = nil
+            }
+
             status =
                 "Error al iniciar la captura: \(error.localizedDescription)"
         }
@@ -301,6 +313,9 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
             self.recorder = nil
 
             guard flag else {
+                try? FileManager.default
+                    .removeItem(at: url)
+                self.captureURL = nil
                 self.status =
                     "La captura terminó con un error."
                 return
@@ -316,6 +331,7 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
         defer {
             try? FileManager.default
                 .removeItem(at: url)
+            captureURL = nil
         }
 
         do {

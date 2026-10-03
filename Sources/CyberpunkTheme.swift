@@ -175,6 +175,11 @@ struct IRCyberProgressBar: View {
     let value: Double
     var tint: Color = IRCyberPalette.cyan
 
+    @AppStorage(
+        "irUniversal.cyberpunkMode"
+    )
+    private var cyberpunkMode = true
+
     private var clamped: Double {
         min(
             1,
@@ -195,8 +200,13 @@ struct IRCyberProgressBar: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                tint,
-                                IRCyberPalette.magenta,
+                                cyberpunkMode
+                                    ? tint
+                                    : Color.red,
+                                cyberpunkMode
+                                    ? IRCyberPalette
+                                        .magenta
+                                    : Color.red,
                             ],
                             startPoint: .leading,
                             endPoint: .trailing
@@ -209,8 +219,13 @@ struct IRCyberProgressBar: View {
                     )
                     .shadow(
                         color:
-                            tint.opacity(0.34),
-                        radius: 6
+                            cyberpunkMode
+                            ? tint.opacity(0.34)
+                            : Color.clear,
+                        radius:
+                            cyberpunkMode
+                            ? 6
+                            : 0
                     )
             }
         }
@@ -227,6 +242,11 @@ struct IRCyberProgressBar: View {
 
 struct IRCyberActionButtonStyle: ButtonStyle {
     let tint: Color
+
+    @AppStorage(
+        "irUniversal.cyberpunkMode"
+    )
+    private var cyberpunkMode = true
 
     @Environment(\.isEnabled)
     private var isEnabled
@@ -248,12 +268,22 @@ struct IRCyberActionButtonStyle: ButtonStyle {
             .background(
                 LinearGradient(
                     colors: [
-                        tint.opacity(
+                        (
+                            cyberpunkMode
+                            ? tint
+                            : Color.red
+                        )
+                        .opacity(
                             isEnabled
                             ? 0.92
                             : 0.20
                         ),
-                        IRCyberPalette.magenta
+                        (
+                            cyberpunkMode
+                            ? IRCyberPalette
+                                .magenta
+                            : Color.red
+                        )
                             .opacity(
                                 isEnabled
                                 ? 0.62
@@ -274,7 +304,12 @@ struct IRCyberActionButtonStyle: ButtonStyle {
                     style: .continuous
                 )
                 .stroke(
-                    tint.opacity(
+                    (
+                        cyberpunkMode
+                        ? tint
+                        : Color.red
+                    )
+                    .opacity(
                         isEnabled
                         ? 0.78
                         : 0.18
@@ -284,7 +319,12 @@ struct IRCyberActionButtonStyle: ButtonStyle {
             )
             .shadow(
                 color:
-                    tint.opacity(
+                    (
+                        cyberpunkMode
+                        ? tint
+                        : Color.clear
+                    )
+                    .opacity(
                         isEnabled
                         ? 0.24
                         : 0

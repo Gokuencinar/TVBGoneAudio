@@ -179,6 +179,11 @@ private struct ControlView: View {
     @ObservedObject var savedDevices: SavedDeviceStore
     @ObservedObject var history: WorkedCodeHistoryStore
 
+    @AppStorage(
+        "irUniversal.cyberpunkMode"
+    )
+    private var cyberpunkMode = true
+
     @Binding var category: IRDeviceCategory
     @Binding var region: TVRegion
     @Binding var pace: ScanPace
@@ -222,7 +227,8 @@ private struct ControlView: View {
                 WorkedSheet(
                     candidates: workedCandidates,
                     category: category,
-                    savedDevices: savedDevices
+                    savedDevices: savedDevices,
+                    history: history
                 )
             }
         }
@@ -230,31 +236,33 @@ private struct ControlView: View {
 
     private var hero: some View {
         VStack(spacing: 14) {
-            HStack {
-                IRCyberBadge(
-                    text: "IR // COMMAND",
-                    systemImage: "scope"
-                )
+            if cyberpunkMode {
+                HStack {
+                    IRCyberBadge(
+                        text: "IR // COMMAND",
+                        systemImage: "scope"
+                    )
 
-                Spacer()
+                    Spacer()
 
-                IRCyberBadge(
-                    text:
-                        transmitter
-                            .outputRouteSuitableForIR
-                        ? "LINK READY"
-                        : "LINK CHECK",
-                    systemImage:
-                        transmitter
-                            .outputRouteSuitableForIR
-                        ? "bolt.horizontal.fill"
-                        : "exclamationmark.triangle.fill",
-                    tint:
-                        transmitter
-                            .outputRouteSuitableForIR
-                        ? IRCyberPalette.success
-                        : IRCyberPalette.warning
-                )
+                    IRCyberBadge(
+                        text:
+                            transmitter
+                                .outputRouteSuitableForIR
+                            ? "LINK READY"
+                            : "LINK CHECK",
+                        systemImage:
+                            transmitter
+                                .outputRouteSuitableForIR
+                            ? "bolt.horizontal.fill"
+                            : "exclamationmark.triangle.fill",
+                        tint:
+                            transmitter
+                                .outputRouteSuitableForIR
+                            ? IRCyberPalette.success
+                            : IRCyberPalette.warning
+                    )
+                }
             }
 
             ZStack {
@@ -267,11 +275,17 @@ private struct ControlView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                IRCyberPalette
-                                    .cyan
+                                (
+                                    cyberpunkMode
+                                    ? IRCyberPalette.cyan
+                                    : Color.red
+                                )
                                     .opacity(0.18),
-                                IRCyberPalette
-                                    .magenta
+                                (
+                                    cyberpunkMode
+                                    ? IRCyberPalette.magenta
+                                    : Color.orange
+                                )
                                     .opacity(0.12),
                             ],
                             startPoint: .topLeading,
@@ -283,14 +297,21 @@ private struct ControlView: View {
                 Image(systemName: category.systemImage)
                     .font(.system(size: 44, weight: .semibold))
                     .foregroundStyle(
-                        IRCyberPalette.cyan
+                        cyberpunkMode
+                        ? IRCyberPalette.cyan
+                        : Color.red
                     )
                     .shadow(
                         color:
-                            IRCyberPalette
+                            cyberpunkMode
+                            ? IRCyberPalette
                                 .cyan
-                                .opacity(0.34),
-                        radius: 10
+                                .opacity(0.34)
+                            : Color.clear,
+                        radius:
+                            cyberpunkMode
+                            ? 10
+                            : 0
                     )
             }
 
@@ -305,7 +326,9 @@ private struct ControlView: View {
                         .bold()
                 )
                 .foregroundStyle(
-                    IRCyberPalette.cyan
+                    cyberpunkMode
+                    ? IRCyberPalette.cyan
+                    : Color.red
                 )
             } else if transmitter.isPreviewing {
                 Label(
@@ -329,8 +352,10 @@ private struct ControlView: View {
                     )
                     .tracking(1.8)
                     .foregroundStyle(
-                        IRCyberPalette.cyan
+                        cyberpunkMode
+                        ? IRCyberPalette.cyan
                             .opacity(0.78)
+                        : Color.secondary
                     )
             }
 
@@ -348,28 +373,30 @@ private struct ControlView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            HStack(spacing: 8) {
-                IRCyberBadge(
-                    text:
-                        category.shortTitle
-                            .uppercased(),
-                    systemImage:
-                        category.systemImage,
-                    tint:
-                        IRCyberPalette.magenta
-                )
+            if cyberpunkMode {
+                HStack(spacing: 8) {
+                    IRCyberBadge(
+                        text:
+                            category.shortTitle
+                                .uppercased(),
+                        systemImage:
+                            category.systemImage,
+                        tint:
+                            IRCyberPalette.magenta
+                    )
 
-                IRCyberBadge(
-                    text:
-                        transmitter
-                            .transmissionMode
-                            .title
-                            .uppercased(),
-                    systemImage:
-                        "waveform.path",
-                    tint:
-                        IRCyberPalette.signalRed
-                )
+                    IRCyberBadge(
+                        text:
+                            transmitter
+                                .transmissionMode
+                                .title
+                                .uppercased(),
+                        systemImage:
+                            "waveform.path",
+                        tint:
+                            IRCyberPalette.signalRed
+                    )
+                }
             }
         }
         .frame(maxWidth: .infinity)
@@ -678,13 +705,6 @@ private struct ControlView: View {
             Button {
                 workedCandidates =
                     transmitter.markWorked()
-
-                if let best = workedCandidates.first {
-                    history.add(
-                        code: best,
-                        category: category
-                    )
-                }
 
                 if !workedCandidates.isEmpty {
                     showWorkedSheet = true
@@ -1007,7 +1027,8 @@ private struct ManualCodeView: View {
                             brandWorkedCandidates,
                         category: category,
                         savedDevices:
-                            savedDevices
+                            savedDevices,
+                        history: history
                     )
                 }
             }
@@ -1187,12 +1208,6 @@ private struct ManualCodeView: View {
                         {
                             selectedCodeID =
                                 best.id
-
-                            history.add(
-                                code: best,
-                                category:
-                                    category
-                            )
                         }
 
                         if
@@ -2407,6 +2422,7 @@ private struct WorkedSheet: View {
     let category: IRDeviceCategory
 
     @ObservedObject var savedDevices: SavedDeviceStore
+    @ObservedObject var history: WorkedCodeHistoryStore
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -2428,6 +2444,13 @@ private struct WorkedSheet: View {
                                 category: category,
                                 savedDevices: savedDevices
                             )
+                            .onAppear {
+                                history.add(
+                                    code: code,
+                                    category:
+                                        category
+                                )
+                            }
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(code.displayName)
@@ -2975,6 +2998,7 @@ private struct LearnIRView: View {
                     )
                     .font(.headline)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
                 }
                 .buttonStyle(
                     IRCyberActionButtonStyle(
