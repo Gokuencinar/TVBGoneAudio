@@ -1,7 +1,11 @@
 import AVFoundation
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
+    @Environment(\.scenePhase)
+    private var scenePhase
+
     @StateObject private var transmitter = IRTransmitter()
     @StateObject private var savedDevices = SavedDeviceStore()
     @StateObject private var learnedSignals = LearnedIRStore()
@@ -12,6 +16,16 @@ struct ContentView: View {
 
     @AppStorage("irUniversal.onboardingVersion")
     private var onboardingVersion = 0
+
+    @AppStorage(
+        "irUniversal.cyberpunkMode"
+    )
+    private var cyberpunkMode = true
+
+    @AppStorage(
+        "irUniversal.keepAwakeDuringActivity"
+    )
+    private var keepAwakeDuringActivity = true
 
     @State private var category: IRDeviceCategory = .television
     @State private var region: TVRegion = .europe
@@ -38,6 +52,7 @@ struct ContentView: View {
                 savedDevices: savedDevices,
                 learnedSignals: learnedSignals,
                 customRemotes: customRemotes,
+                history: workedHistory,
                 category: $category,
                 region: $region
             )
@@ -80,7 +95,11 @@ struct ContentView: View {
                 Label("Diagnóstico", systemImage: "waveform.path.ecg")
             }
         }
-        .tint(.red)
+        .tint(
+            cyberpunkMode
+            ? IRCyberPalette.cyan
+            : .red
+        )
         .task {
             await updater.checkForUpdates(silent: true)
         }
@@ -105,10 +124,33 @@ struct ContentView: View {
         }
         .onAppear {
             transmitter.inspectOutputRoute()
+            updateIdleTimer()
 
             if onboardingVersion < 5 {
                 showOnboarding = true
             }
+        }
+        .onChange(
+            of: transmitter.isScanning
+        ) { _ in
+            updateIdleTimer()
+        }
+        .onChange(
+            of: learner.isRecording
+        ) { _ in
+            updateIdleTimer()
+        }
+        .onChange(
+            of: keepAwakeDuringActivity
+        ) { _ in
+            updateIdleTimer()
+        }
+        .onChange(of: scenePhase) { _ in
+            updateIdleTimer()
+        }
+        .onDisappear {
+            UIApplication.shared
+                .isIdleTimerDisabled = false
         }
         .fullScreenCover(
             isPresented: $showOnboarding
@@ -118,6 +160,17 @@ struct ContentView: View {
                 showOnboarding = false
             }
         }
+    }
+
+    private func updateIdleTimer() {
+        UIApplication.shared
+            .isIdleTimerDisabled =
+            keepAwakeDuringActivity
+            && scenePhase == .active
+            && (
+                transmitter.isScanning
+                || learner.isRecording
+            )
     }
 }
 
@@ -176,7 +229,34 @@ private struct ControlView: View {
     }
 
     private var hero: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
+            HStack {
+                IRCyberBadge(
+                    text: "IR // COMMAND",
+                    systemImage: "scope"
+                )
+
+                Spacer()
+
+                IRCyberBadge(
+                    text:
+                        transmitter
+                            .outputRouteSuitableForIR
+                        ? "LINK READY"
+                        : "LINK CHECK",
+                    systemImage:
+                        transmitter
+                            .outputRouteSuitableForIR
+                        ? "bolt.horizontal.fill"
+                        : "exclamationmark.triangle.fill",
+                    tint:
+                        transmitter
+                            .outputRouteSuitableForIR
+                        ? IRCyberPalette.success
+                        : IRCyberPalette.warning
+                )
+            }
+
             ZStack {
                 IRTransmissionHalo(
                     trigger: transmitter.transmissionPulse
@@ -187,8 +267,12 @@ private struct ControlView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                .red.opacity(0.20),
-                                .orange.opacity(0.08),
+                                IRCyberPalette
+                                    .cyan
+                                    .opacity(0.18),
+                                IRCyberPalette
+                                    .magenta
+                                    .opacity(0.12),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -198,7 +282,16 @@ private struct ControlView: View {
 
                 Image(systemName: category.systemImage)
                     .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(
+                        IRCyberPalette.cyan
+                    )
+                    .shadow(
+                        color:
+                            IRCyberPalette
+                                .cyan
+                                .opacity(0.34),
+                        radius: 10
+                    )
             }
 
             if transmitter.isScanning {
@@ -206,32 +299,82 @@ private struct ControlView: View {
                     "BARRIENDO CÓDIGOS",
                     systemImage: "dot.radiowaves.left.and.right"
                 )
-                .font(.caption.bold())
-                .foregroundStyle(.red)
+                .font(
+                    .caption
+                        .monospaced()
+                        .bold()
+                )
+                .foregroundStyle(
+                    IRCyberPalette.cyan
+                )
             } else if transmitter.isPreviewing {
                 Label(
                     "TRANSMITIENDO",
                     systemImage: "wave.3.right"
                 )
-                .font(.caption.bold())
-                .foregroundStyle(.red)
+                .font(
+                    .caption
+                        .monospaced()
+                        .bold()
+                )
+                .foregroundStyle(
+                    IRCyberPalette.signalRed
+                )
             } else {
-                Text("TVBGONEAUDIO")
-                    .font(.caption.bold())
+                Text("SYSTEM // STANDBY")
+                    .font(
+                        .caption
+                            .monospaced()
+                            .bold()
+                    )
                     .tracking(1.8)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(
+                        IRCyberPalette.cyan
+                            .opacity(0.78)
+                    )
             }
 
             Text(category.title)
-                .font(.title2.bold())
+                .font(
+                    .system(
+                        .title2,
+                        design: .rounded
+                    )
+                    .bold()
+                )
 
             Text(category.explanation)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            HStack(spacing: 8) {
+                IRCyberBadge(
+                    text:
+                        category.shortTitle
+                            .uppercased(),
+                    systemImage:
+                        category.systemImage,
+                    tint:
+                        IRCyberPalette.magenta
+                )
+
+                IRCyberBadge(
+                    text:
+                        transmitter
+                            .transmissionMode
+                            .title
+                            .uppercased(),
+                    systemImage:
+                        "waveform.path",
+                    tint:
+                        IRCyberPalette.signalRed
+                )
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
+        .padding()
+        .irCard(cornerRadius: 24)
     }
 
     private var regionPicker: some View {
@@ -283,10 +426,7 @@ private struct ControlView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .background(
-                        .thinMaterial,
-                        in: RoundedRectangle(cornerRadius: 16)
-                    )
+                    .irCard(cornerRadius: 16)
                     .disabled(transmitter.isScanning)
                 }
             }
@@ -415,20 +555,25 @@ private struct ControlView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .tint(transmitter.isScanning ? .secondary : .red)
+            .buttonStyle(
+                IRCyberActionButtonStyle(
+                    tint:
+                        transmitter.isScanning
+                        ? Color.gray
+                        : IRCyberPalette
+                            .signalRed
+                )
+            )
         }
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(cornerRadius: 20)
-        )
+        .irCard(cornerRadius: 20)
     }
 
     private var activeScanCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ProgressView(value: transmitter.progress)
+            IRCyberProgressBar(
+                value: transmitter.progress
+            )
 
             HStack {
                 Text(
@@ -492,6 +637,9 @@ private struct ControlView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .accessibilityLabel(
+                    "Código anterior"
+                )
 
                 Button {
                     if transmitter.isPaused {
@@ -509,6 +657,11 @@ private struct ControlView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .accessibilityLabel(
+                    transmitter.isPaused
+                    ? "Reanudar barrido"
+                    : "Pausar barrido"
+                )
 
                 Button {
                     transmitter.step(1)
@@ -517,6 +670,9 @@ private struct ControlView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .accessibilityLabel(
+                    "Código siguiente"
+                )
             }
 
             Button {
@@ -543,10 +699,7 @@ private struct ControlView: View {
             .tint(.green)
         }
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(cornerRadius: 20)
-        )
+        .irCard(cornerRadius: 20)
     }
 
     private var estimatedRemainingText: String {
@@ -589,6 +742,7 @@ private struct ManualCodeView: View {
     @ObservedObject var savedDevices: SavedDeviceStore
     @ObservedObject var learnedSignals: LearnedIRStore
     @ObservedObject var customRemotes: CustomRemoteStore
+    @ObservedObject var history: WorkedCodeHistoryStore
 
     @Binding var category: IRDeviceCategory
     @Binding var region: TVRegion
@@ -613,6 +767,7 @@ private struct ManualCodeView: View {
     private let alphabet =
         Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
             .map(String.init)
+        + ["#"]
 
     private var sourceCodes: [IRCode] {
         IRCodeCatalog.filtered(
@@ -923,7 +1078,7 @@ private struct ManualCodeView: View {
                     brandScanActive,
                     transmitter.isScanning
                 {
-                    ProgressView(
+                    IRCyberProgressBar(
                         value:
                             transmitter.progress
                     )
@@ -1032,6 +1187,12 @@ private struct ManualCodeView: View {
                         {
                             selectedCodeID =
                                 best.id
+
+                            history.add(
+                                code: best,
+                                category:
+                                    category
+                            )
                         }
 
                         if
@@ -1109,14 +1270,15 @@ private struct ManualCodeView: View {
                     )
                 }
                 .buttonStyle(
-                    .borderedProminent
-                )
-                .tint(
-                    brandScanActive
-                        && transmitter
-                            .isScanning
-                    ? .secondary
-                    : .red
+                    IRCyberActionButtonStyle(
+                        tint:
+                            brandScanActive
+                                && transmitter
+                                    .isScanning
+                            ? Color.gray
+                            : IRCyberPalette
+                                .signalRed
+                    )
                 )
             }
             .padding()
@@ -1356,8 +1518,8 @@ private struct ManualCodeView: View {
                                                 .caption.bold()
                                             )
                                             .frame(
-                                                width: 34,
-                                                height: 30
+                                                width: 44,
+                                                height: 44
                                             )
                                             .foregroundStyle(
                                                 selectedBrowseLetter
@@ -2016,10 +2178,7 @@ private struct DiagnosticsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(
-                        .thinMaterial,
-                        in: RoundedRectangle(cornerRadius: 18)
-                    )
+                    .irCard(cornerRadius: 18)
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Modo de transmisión")
@@ -2053,10 +2212,7 @@ private struct DiagnosticsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(
-                        .thinMaterial,
-                        in: RoundedRectangle(cornerRadius: 18)
-                    )
+                    .irCard(cornerRadius: 18)
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Prueba de portadora")
@@ -2090,10 +2246,7 @@ private struct DiagnosticsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(
-                        .thinMaterial,
-                        in: RoundedRectangle(cornerRadius: 18)
-                    )
+                    .irCard(cornerRadius: 18)
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Cómo funciona")
@@ -2107,10 +2260,7 @@ private struct DiagnosticsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(
-                        .thinMaterial,
-                        in: RoundedRectangle(cornerRadius: 18)
-                    )
+                    .irCard(cornerRadius: 18)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Por qué importan los ajustes de audio")
@@ -2134,12 +2284,11 @@ private struct DiagnosticsView: View {
                     .font(.subheadline)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(
-                        .thinMaterial,
-                        in: RoundedRectangle(cornerRadius: 18)
-                    )
+                    .irCard(cornerRadius: 18)
 
                     OLEDSettingsCard()
+
+                    IRCyberSettingsCard()
 
                     BackupCenterView(
                         savedDevices: savedDevices,
@@ -2195,10 +2344,7 @@ private struct CodeDetailsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(cornerRadius: 18)
-        )
+        .irCard(cornerRadius: 18)
     }
 }
 
@@ -2252,10 +2398,7 @@ private struct SavedDeviceCard: View {
             .buttonStyle(.borderless)
         }
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(cornerRadius: 18)
-        )
+        .irCard(cornerRadius: 18)
     }
 }
 
@@ -2514,12 +2657,7 @@ private struct LearnIRView: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 
     private var studioTools: some View {
@@ -2577,12 +2715,7 @@ private struct LearnIRView: View {
             }
         }
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 
     private var guidedCard: some View {
@@ -2635,12 +2768,7 @@ private struct LearnIRView: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 
     private var inputCard: some View {
@@ -2721,12 +2849,7 @@ private struct LearnIRView: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 
     private var carrierCard: some View {
@@ -2771,12 +2894,7 @@ private struct LearnIRView: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 
     private var captureCard: some View {
@@ -2859,12 +2977,13 @@ private struct LearnIRView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(
-                    .borderedProminent
-                )
-                .tint(
-                    learner.isRecording
-                    ? .secondary
-                    : .red
+                    IRCyberActionButtonStyle(
+                        tint:
+                            learner.isRecording
+                            ? Color.gray
+                            : IRCyberPalette
+                                .signalRed
+                    )
                 )
                 .disabled(!learner.isExternalInput && !learner.isRecording)
             }
@@ -2874,12 +2993,7 @@ private struct LearnIRView: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 
     private func learnedResultCard(
@@ -3014,12 +3128,7 @@ private struct LearnIRView: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 
     @ViewBuilder
@@ -3096,12 +3205,7 @@ private struct LearnIRView: View {
                         .padding()
                     }
                     .buttonStyle(.plain)
-                    .background(
-                        .thinMaterial,
-                        in: RoundedRectangle(
-                            cornerRadius: 16
-                        )
-                    )
+                    .irCard(cornerRadius: 16)
                     .contextMenu {
                         Button {
                             transmitter.send(

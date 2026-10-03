@@ -313,6 +313,11 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
     private func analyze(
         url: URL
     ) {
+        defer {
+            try? FileManager.default
+                .removeItem(at: url)
+        }
+
         do {
             let file =
                 try AVAudioFile(
@@ -458,10 +463,6 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
             status =
                 "No se pudo analizar la captura: \(error.localizedDescription)"
         }
-
-        try? FileManager.default.removeItem(
-            at: url
-        )
     }
 
     private func detectEdges(

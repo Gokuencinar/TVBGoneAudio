@@ -82,11 +82,16 @@ final class OnlineIRLibrary: ObservableObject {
     @Published private(set) var brandStatus = "Cargando índice de marcas…"
 
     private var memoryCache: [String: Data] = [:]
+    private var brandRequestID = UUID()
+    private let maximumCacheBytes = 24_000_000
 
     func loadBrands(
         category: IRDeviceCategory,
         filter: OnlineIRSourceFilter
     ) async {
+        let requestID = UUID()
+        brandRequestID = requestID
+
         isLoadingBrands = true
         brandStatus = "Actualizando marcas…"
 
@@ -118,6 +123,10 @@ final class OnlineIRLibrary: ObservableObject {
             } catch {
                 failures += 1
             }
+        }
+
+        guard brandRequestID == requestID else {
+            return
         }
 
         var unique: [String: String] = [:]
@@ -600,6 +609,20 @@ final class OnlineIRLibrary: ObservableObject {
         if let data = memoryCache[string] { return data }
         guard let url = URL(string: string) else { throw error("URL interna inválida.") }
         let data = try await fetch(url, maxBytes: maxBytes)
+
+        let currentBytes =
+            memoryCache.values.reduce(0) {
+                $0 + $1.count
+            }
+
+        if currentBytes + data.count
+            > maximumCacheBytes
+        {
+            memoryCache.removeAll(
+                keepingCapacity: true
+            )
+        }
+
         memoryCache[string] = data
         return data
     }

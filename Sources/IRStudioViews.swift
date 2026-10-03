@@ -95,12 +95,7 @@ struct IRWaveformView: View {
         }
         .frame(height: 110)
         .padding(8)
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 14
-            )
-        )
+        .irCard(cornerRadius: 14)
         .accessibilityLabel(
             "Gráfica de la señal infrarroja"
         )
@@ -210,12 +205,7 @@ struct IRAnalysisCard: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 }
 

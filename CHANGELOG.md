@@ -8,6 +8,38 @@ Historial de cambios de **TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
+## 5.8 — 2026-10-04
+
+### Novedades y cambios
+
+- Nuevo modo visual **Cyberpunk / IR Ops** activado por defecto:
+  - negro OLED real;
+  - paneles técnicos casi negros;
+  - acentos cian y magenta;
+  - rojo reservado para transmisión y POWER;
+  - verde para estados correctos y ámbar para avisos;
+  - bordes neon y rejilla HUD sutil.
+- Nuevo HUD en Control con estado del enlace IR, categoría, modo de transmisión y telemetría más clara.
+- Nuevas barras de progreso neon para barridos universal y por marca.
+- Botones principales de transmisión con estilo cyberpunk y feedback visual más claro.
+- Diagnóstico, Aprender, backups, actualizaciones, mandos y analizador IR usan ahora el mismo sistema de paneles OLED.
+- Añadido selector en Diagnóstico para activar/desactivar la apariencia Cyberpunk.
+- Nueva opción **Mantener pantalla activa** durante barridos y capturas para evitar que el iPhone se bloquee a mitad de una prueba.
+- Mejoras de accesibilidad:
+  - animaciones respetan Reducir movimiento;
+  - el tema respeta Reducir transparencia y Aumentar contraste;
+  - botones A–Z aumentados a 44×44 pt;
+  - soporte para marcas que empiezan por números/símbolos mediante `#`;
+  - etiquetas VoiceOver en varios botones solo-icono.
+- El barrido por marca ahora registra correctamente el código confirmado en el historial de aciertos.
+- Corregido un fallo de estado por el que probar manualmente un código o una portadora durante un barrido podía detener el audio dejando la interfaz marcada como «barrido activo».
+- Mejorada la biblioteca online:
+  - se descartan resultados de carga de marcas obsoletos cuando cambia rápidamente categoría/fuente;
+  - caché en memoria limitada para evitar crecimiento indefinido.
+- El centro de actualizaciones muestra ahora las notas de la nueva versión antes de enviarla a TrollStore.
+- Las capturas de aprendizaje eliminan siempre el archivo temporal, incluso cuando el análisis termina pronto por error o señal inválida.
+- El motor físico de generación de señal IR no cambia.
+
 ## 5.7 — 2026-09-25
 
 ### Novedades y cambios

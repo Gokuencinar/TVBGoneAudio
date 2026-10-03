@@ -7,16 +7,24 @@ struct TVBGoneAudioApp: App {
     )
     private var oledMode = true
 
+    @AppStorage(
+        "irUniversal.cyberpunkMode"
+    )
+    private var cyberpunkMode = true
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(
                     oledMode
+                    || cyberpunkMode
                     ? .dark
                     : nil
                 )
                 .irOLEDRoot(
-                    enabled: oledMode
+                    enabled:
+                        oledMode
+                        || cyberpunkMode
                 )
         }
     }

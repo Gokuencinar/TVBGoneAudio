@@ -210,12 +210,7 @@ struct BackupCenterView: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
         .fileExporter(
             isPresented: $showExporter,
             document: exportDocument,

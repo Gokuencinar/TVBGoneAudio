@@ -231,6 +231,12 @@ final class IRTransmitter: ObservableObject {
     ) {
         IRHaptics.transmit()
 
+        if isScanning {
+            stop(
+                resetProgress: false
+            )
+        }
+
         preview(
             code: code,
             preserveScan: false
@@ -251,6 +257,12 @@ final class IRTransmitter: ObservableObject {
         hz: Int
     ) {
         IRHaptics.transmit()
+
+        if isScanning {
+            stop(
+                resetProgress: false
+            )
+        }
 
         let code = IRCode(
             id: "test-\(hz)",

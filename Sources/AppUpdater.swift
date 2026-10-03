@@ -349,6 +349,53 @@ struct UpdateCenterView: View {
                         "\(release.version) (\(release.build))"
                 )
 
+                if !release.notes
+                    .trimmingCharacters(
+                        in:
+                            .whitespacesAndNewlines
+                    )
+                    .isEmpty
+                {
+                    VStack(
+                        alignment: .leading,
+                        spacing: 5
+                    ) {
+                        Label(
+                            "Novedades",
+                            systemImage:
+                                "sparkles"
+                        )
+                        .font(
+                            .subheadline.bold()
+                        )
+                        .foregroundStyle(
+                            IRCyberPalette.cyan
+                        )
+
+                        Text(release.notes)
+                            .font(.caption)
+                            .foregroundStyle(
+                                .secondary
+                            )
+                            .lineLimit(8)
+                    }
+                    .padding(10)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+                    .background(
+                        IRCyberPalette.cyan
+                            .opacity(0.055),
+                        in:
+                            RoundedRectangle(
+                                cornerRadius: 12,
+                                style:
+                                    .continuous
+                            )
+                    )
+                }
+
                 Button {
                     updater
                         .installWithTrollStore()
@@ -418,11 +465,6 @@ struct UpdateCenterView: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 18
-            )
-        )
+        .irCard(cornerRadius: 18)
     }
 }

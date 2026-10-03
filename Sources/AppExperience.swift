@@ -38,6 +38,16 @@ enum IRHaptics {
 struct IRTransmissionHalo: View {
     let trigger: Int
 
+    @AppStorage(
+        "irUniversal.cyberpunkMode"
+    )
+    private var cyberpunkMode = true
+
+    @Environment(
+        \.accessibilityReduceMotion
+    )
+    private var reduceMotion
+
     @State private var phase:
         CGFloat = 1
 
@@ -46,9 +56,18 @@ struct IRTransmissionHalo: View {
             ForEach(0..<3, id: \.self) {
                 index in
 
+                let tint =
+                    cyberpunkMode
+                    ? (
+                        index.isMultiple(of: 2)
+                        ? IRCyberPalette.signalRed
+                        : IRCyberPalette.magenta
+                    )
+                    : Color.red
+
                 Circle()
                     .stroke(
-                        Color.red.opacity(
+                        tint.opacity(
                             0.34
                             - Double(index) * 0.07
                         ),
@@ -71,10 +90,14 @@ struct IRTransmissionHalo: View {
         .onChange(of: trigger) { _ in
             phase = 0
 
-            withAnimation(
-                .easeOut(duration: 0.72)
-            ) {
+            if reduceMotion {
                 phase = 1
+            } else {
+                withAnimation(
+                    .easeOut(duration: 0.72)
+                ) {
+                    phase = 1
+                }
             }
         }
     }
@@ -107,10 +130,10 @@ struct AccessoryStatusCard: View {
 
     private var tint: Color {
         if ready && volumeReady {
-            return .green
+            return IRCyberPalette.success
         }
 
-        return .orange
+        return IRCyberPalette.warning
     }
 
     var body: some View {
@@ -216,26 +239,15 @@ struct AccessoryStatusCard: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            LinearGradient(
-                colors: [
-                    tint.opacity(0.13),
-                    Color.clear,
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(
-                cornerRadius: 20
-            )
-        )
+        .irCard(cornerRadius: 20)
         .overlay(
             RoundedRectangle(
-                cornerRadius: 20
+                cornerRadius: 20,
+                style: .continuous
             )
             .stroke(
-                tint.opacity(0.20),
-                lineWidth: 1
+                tint.opacity(0.24),
+                lineWidth: 0.8
             )
         )
     }
@@ -254,8 +266,19 @@ private struct StatusChip: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
         .background(
-            .thinMaterial,
+            IRCyberPalette
+                .cyan
+                .opacity(0.075),
             in: Capsule()
+        )
+        .overlay(
+            Capsule()
+                .stroke(
+                    IRCyberPalette
+                        .cyan
+                        .opacity(0.22),
+                    lineWidth: 0.6
+                )
         )
     }
 }
@@ -286,12 +309,7 @@ struct LibraryMetricCard: View {
             maxWidth: .infinity,
             minHeight: 82
         )
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 17
-            )
-        )
+        .irCard(cornerRadius: 17)
     }
 }
 
@@ -351,12 +369,7 @@ struct PremiumRemoteTile: View {
             alignment: .leading
         )
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 20
-            )
-        )
+        .irCard(cornerRadius: 20)
     }
 }
 
@@ -442,14 +455,12 @@ struct PremiumSavedDeviceCard: View {
             )
             .clipShape(Circle())
             .tint(.red)
+            .accessibilityLabel(
+                "Encender o apagar \(device.name)"
+            )
         }
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 20
-            )
-        )
+        .irCard(cornerRadius: 20)
         .contextMenu {
             Button(
                 role: .destructive
@@ -520,14 +531,12 @@ struct WorkedCodeRow: View {
                 )
             }
             .buttonStyle(.bordered)
+            .accessibilityLabel(
+                "Probar \(record.codeLabel)"
+            )
         }
         .padding()
-        .background(
-            .thinMaterial,
-            in: RoundedRectangle(
-                cornerRadius: 16
-            )
-        )
+        .irCard(cornerRadius: 16)
         .contextMenu {
             Button(
                 role: .destructive
@@ -545,6 +554,11 @@ struct WorkedCodeRow: View {
 
 struct IRWelcomeView: View {
     let onFinish: () -> Void
+
+    @Environment(
+        \.accessibilityReduceMotion
+    )
+    private var reduceMotion
 
     @State private var page = 0
 
@@ -574,28 +588,37 @@ struct IRWelcomeView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color.red.opacity(0.14),
-                    Color(.systemBackground),
-                    Color.orange.opacity(0.06),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            IRCyberGridBackground()
 
             VStack(spacing: 18) {
                 HStack {
-                    Text("TVBGONEAUDIO")
-                        .font(.caption.bold())
+                    Label(
+                        "TVBGONEAUDIO",
+                        systemImage: "scope"
+                    )
+                        .font(
+                            .caption
+                                .monospaced()
+                                .bold()
+                        )
                         .tracking(2)
+                        .foregroundStyle(
+                            IRCyberPalette.cyan
+                        )
 
                     Spacer()
 
-                    Text("5.0")
+                    Text(
+                        Bundle.main.object(
+                            forInfoDictionaryKey:
+                                "CFBundleShortVersionString"
+                        ) as? String
+                        ?? ""
+                    )
                         .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(
+                            IRCyberPalette.magenta
+                        )
                 }
                 .padding(.horizontal)
 
@@ -613,8 +636,20 @@ struct IRWelcomeView: View {
                             ZStack {
                                 Circle()
                                     .fill(
-                                        Color.red
-                                            .opacity(0.12)
+                                        LinearGradient(
+                                            colors: [
+                                                IRCyberPalette
+                                                    .cyan
+                                                    .opacity(0.18),
+                                                IRCyberPalette
+                                                    .magenta
+                                                    .opacity(0.12),
+                                            ],
+                                            startPoint:
+                                                .topLeading,
+                                            endPoint:
+                                                .bottomTrailing
+                                        )
                                     )
                                     .frame(
                                         width: 150,
@@ -632,7 +667,15 @@ struct IRWelcomeView: View {
                                             .semibold
                                     )
                                 )
-                                .foregroundStyle(.red)
+                                .foregroundStyle(
+                                    IRCyberPalette.cyan
+                                )
+                                .shadow(
+                                    color:
+                                        IRCyberPalette.cyan
+                                            .opacity(0.35),
+                                    radius: 14
+                                )
                             }
 
                             VStack(spacing: 12) {
@@ -675,7 +718,13 @@ struct IRWelcomeView: View {
                     if page
                         < pages.count - 1
                     {
-                        withAnimation {
+                        withAnimation(
+                            reduceMotion
+                            ? nil
+                            : .easeInOut(
+                                duration: 0.22
+                            )
+                        ) {
                             page += 1
                         }
                     } else {
@@ -695,10 +744,12 @@ struct IRWelcomeView: View {
                     .padding(.vertical, 14)
                 }
                 .buttonStyle(
-                    .borderedProminent
+                    IRCyberActionButtonStyle(
+                        tint:
+                            IRCyberPalette
+                                .signalRed
+                    )
                 )
-                .controlSize(.large)
-                .tint(.red)
                 .padding()
             }
         }

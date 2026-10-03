@@ -31,6 +31,7 @@ struct OnlineIRLibraryView: View {
     private let alphabet =
         Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
             .map(String.init)
+        + ["#"]
 
     private var availableLetters:
         [String]
@@ -317,8 +318,8 @@ struct OnlineIRLibraryView: View {
                                                 .caption.bold()
                                             )
                                             .frame(
-                                                width: 34,
-                                                height: 30
+                                                width: 44,
+                                                height: 44
                                             )
                                             .foregroundStyle(
                                                 selectedLetter
@@ -917,6 +918,9 @@ private struct OnlineIRLoadedRemoteContent: View {
                         Image(systemName: "wave.3.right")
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityLabel(
+                        "Probar \(signal.name)"
+                    )
 
                     Button {
                         learnedSignals.addImported(
@@ -929,6 +933,9 @@ private struct OnlineIRLoadedRemoteContent: View {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityLabel(
+                        "Guardar \(signal.name)"
+                    )
                 }
                 .padding(.vertical, 3)
             }
