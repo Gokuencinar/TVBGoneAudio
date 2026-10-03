@@ -360,6 +360,11 @@ struct IRCyberSettingsCard: View {
     private var cyberpunkMode = true
 
     @AppStorage(
+        "irUniversal.oledMode"
+    )
+    private var oledMode = true
+
+    @AppStorage(
         "irUniversal.keepAwakeDuringActivity"
     )
     private var keepAwake = true
@@ -380,11 +385,26 @@ struct IRCyberSettingsCard: View {
                 Spacer()
 
                 Toggle(
-                    "",
+                    "Interfaz Cyberpunk",
                     isOn:
-                        $cyberpunkMode
+                        Binding(
+                            get: {
+                                cyberpunkMode
+                            },
+                            set: { enabled in
+                                cyberpunkMode =
+                                    enabled
+
+                                if enabled {
+                                    oledMode = true
+                                }
+                            }
+                        )
                 )
                 .labelsHidden()
+                .accessibilityLabel(
+                    "Interfaz Cyberpunk"
+                )
                 .tint(
                     IRCyberPalette.cyan
                 )

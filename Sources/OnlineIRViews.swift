@@ -345,7 +345,7 @@ struct OnlineIRLibraryView: View {
                             }
                         }
                         .frame(
-                            width: 42,
+                            width: 48,
                             height: 286
                         )
 

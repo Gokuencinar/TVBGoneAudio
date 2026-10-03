@@ -447,6 +447,11 @@ struct OLEDSettingsCard: View {
     )
     private var oledMode = true
 
+    @AppStorage(
+        "irUniversal.cyberpunkMode"
+    )
+    private var cyberpunkMode = true
+
     var body: some View {
         VStack(
             alignment: .leading,
@@ -463,10 +468,20 @@ struct OLEDSettingsCard: View {
                 Spacer()
 
                 Toggle(
-                    "",
+                    "Pantalla OLED",
                     isOn: $oledMode
                 )
                 .labelsHidden()
+                .accessibilityLabel(
+                    "Pantalla OLED"
+                )
+                .onChange(
+                    of: oledMode
+                ) { enabled in
+                    if !enabled {
+                        cyberpunkMode = false
+                    }
+                }
             }
 
             Text(
