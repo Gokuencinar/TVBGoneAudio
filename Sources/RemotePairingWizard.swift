@@ -1,12 +1,24 @@
 import SwiftUI
 
 struct RemoteBrandPickerView: View {
+    private struct BrandSection: Identifiable {
+        let letter: String
+        let brands: [String]
+
+        var id: String { letter }
+    }
+
     let category: IRDeviceCategory
     let transmitter: IRTransmitter
     @ObservedObject var customRemotes: CustomRemoteStore
 
     @StateObject private var library = OnlineIRLibrary()
     @State private var searchText = ""
+
+    private let alphabet =
+        Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            .map(String.init)
+        + ["#"]
 
     private var filteredBrands: [String] {
         let query = searchText
@@ -19,6 +31,26 @@ struct RemoteBrandPickerView: View {
         return library.brands.filter {
             $0.localizedCaseInsensitiveContains(query)
         }
+    }
+
+    private var brandSections: [BrandSection] {
+        let grouped = Dictionary(grouping: library.brands) {
+            normalizedFirstLetter($0)
+        }
+
+        return alphabet.compactMap { letter in
+            guard let brands = grouped[letter], !brands.isEmpty else {
+                return nil
+            }
+
+            return BrandSection(letter: letter, brands: brands)
+        }
+    }
+
+    private var isSearchingBrands: Bool {
+        !searchText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
     }
 
     var body: some View {
@@ -66,44 +98,48 @@ struct RemoteBrandPickerView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(32)
             } else {
-                List {
-                    Section {
-                        ForEach(filteredBrands, id: \.self) { brand in
-                            NavigationLink {
-                                RemotePairingWizardView(
-                                    category: category,
-                                    brand: brand,
-                                    transmitter: transmitter,
-                                    customRemotes: customRemotes,
-                                    library: library
-                                )
-                            } label: {
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        RoundedRectangle(
-                                            cornerRadius: 10,
-                                            style: .continuous
-                                        )
-                                        .fill(IRCyberPalette.cyan.opacity(0.10))
-                                        .frame(width: 38, height: 38)
+                let sections = brandSections
 
-                                        Image(systemName: category.systemImage)
-                                            .foregroundStyle(IRCyberPalette.cyan)
-                                    }
-
-                                    Text(brand)
-                                        .font(.body.weight(.medium))
+                ScrollViewReader { proxy in
+                    List {
+                        if isSearchingBrands {
+                            Section {
+                                ForEach(filteredBrands, id: \.self) { brand in
+                                    brandRow(brand)
                                 }
-                                .frame(minHeight: 44)
+                            } header: {
+                                Text("\(filteredBrands.count) coincidencias")
+                            } footer: {
+                                Text("Elige la marca. Después probaremos perfiles uno a uno, igual que un asistente de mando universal.")
+                            }
+                        } else {
+                            ForEach(sections) { section in
+                                Section {
+                                    ForEach(section.brands, id: \.self) { brand in
+                                        brandRow(brand)
+                                    }
+                                } header: {
+                                    Text(section.letter)
+                                        .font(.headline.bold())
+                                        .foregroundStyle(IRCyberPalette.cyan)
+                                }
+                                .id(section.letter)
                             }
                         }
-                    } header: {
-                        Text("\(library.brands.count) marcas disponibles")
-                    } footer: {
-                        Text("Elige la marca. Después probaremos perfiles uno a uno, igual que un asistente de mando universal.")
+                    }
+                    .listStyle(.plain)
+                    .overlay(alignment: .trailing) {
+                        if !isSearchingBrands && sections.count > 1 {
+                            alphabetIndex(
+                                letters: sections.map(\.letter)
+                            ) { letter in
+                                withAnimation(.easeOut(duration: 0.16)) {
+                                    proxy.scrollTo(letter, anchor: .top)
+                                }
+                            }
+                        }
                     }
                 }
-                .listStyle(.plain)
             }
         }
         .irOLEDScreen()
@@ -120,6 +156,88 @@ struct RemoteBrandPickerView: View {
                 filter: .all
             )
         }
+    }
+
+    @ViewBuilder
+    private func brandRow(_ brand: String) -> some View {
+        NavigationLink {
+            RemotePairingWizardView(
+                category: category,
+                brand: brand,
+                transmitter: transmitter,
+                customRemotes: customRemotes,
+                library: library
+            )
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(
+                        cornerRadius: 10,
+                        style: .continuous
+                    )
+                    .fill(IRCyberPalette.cyan.opacity(0.10))
+                    .frame(width: 38, height: 38)
+
+                    Image(systemName: category.systemImage)
+                        .foregroundStyle(IRCyberPalette.cyan)
+                }
+
+                Text(brand)
+                    .font(.body.weight(.medium))
+            }
+            .frame(minHeight: 44)
+            .padding(.trailing, isSearchingBrands ? 0 : 18)
+        }
+    }
+
+    private func alphabetIndex(
+        letters: [String],
+        onSelect: @escaping (String) -> Void
+    ) -> some View {
+        VStack(spacing: 0) {
+            ForEach(letters, id: \.self) { letter in
+                Button {
+                    onSelect(letter)
+                    IRHaptics.tap()
+                } label: {
+                    Text(letter)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(IRCyberPalette.cyan)
+                        .frame(width: 24)
+                        .frame(minHeight: 17)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Marcas con inicial \(letter)")
+            }
+        }
+        .padding(.vertical, 5)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(IRCyberPalette.cyan.opacity(0.25), lineWidth: 1)
+        }
+        .padding(.trailing, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Índice alfabético de marcas")
+    }
+
+    private func normalizedFirstLetter(_ value: String) -> String {
+        let folded = value.folding(
+            options: [
+                .diacriticInsensitive,
+                .caseInsensitive,
+            ],
+            locale: .current
+        )
+        .uppercased()
+
+        guard let first = folded.first else {
+            return "#"
+        }
+
+        let letter = String(first)
+        return alphabet.contains(letter) ? letter : "#"
     }
 }
 

@@ -786,7 +786,7 @@ final class OnlineIRLibrary: ObservableObject {
     private func fetch(_ url: URL, maxBytes: Int) async throws -> Data {
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
-        request.setValue("IR-Universal/6.1 iOS", forHTTPHeaderField: "User-Agent")
+        request.setValue("IR-Universal/6.2 iOS", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw error(http.statusCode == 403 || http.statusCode == 429

@@ -8,6 +8,17 @@ Historial de cambios de **TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
+## 6.2 — 2026-10-04
+
+### Marcas A–Z estilo Mi Remote
+
+- La lista de marcas de **Mando** ahora está agrupada por letra inicial.
+- Añadido un índice lateral A–Z para saltar directamente a la inicial deseada, al estilo Mi Remote.
+- Solo aparecen en el índice las letras que realmente tienen marcas disponibles; `#` agrupa nombres que no empiezan por A–Z.
+- Las marcas con acentos se clasifican por su letra equivalente para mantener una navegación natural.
+- El buscador de marcas se mantiene: al escribir, el índice se oculta y la lista muestra únicamente las coincidencias.
+- Se conserva sin cambios el asistente tipo → marca → prueba Sí/No y el motor físico de transmisión IR.
+
 ## 6.1 — 2026-10-04
 
 ### Asistente Mi Remote y rendimiento
