@@ -18,6 +18,9 @@ enum IRCodeCatalog {
 
         case .projector:
             return GeneratedFlipperPowerDatabase.projectors
+
+        default:
+            return []
         }
     }
 
@@ -36,6 +39,9 @@ enum IRCodeCatalog {
             return GeneratedFlipperPowerDatabase.airConditioners
         case .projector:
             return GeneratedFlipperPowerDatabase.projectors
+
+        default:
+            return []
         }
     }
 

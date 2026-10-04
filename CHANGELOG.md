@@ -8,6 +8,44 @@ Historial de cambios de **TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
+## 6.0 — 2026-10-04
+
+### Mando tipo Mi Remote
+
+- Corregido el icono ausente de la pestaña **Mando** en iOS 16 usando `av.remote.fill`, disponible en SF Symbols 4.
+- Mando pasa a funcionar como una biblioteca de dispositivos, con:
+  - botón `+` para añadir equipo;
+  - selector visual por tipo de dispositivo;
+  - navegación por marcas y modelos/mandos disponibles;
+  - prueba de señales antes de guardar;
+  - guardado del mando completo y selección automática al terminar;
+  - estantería de mandos en la pantalla principal;
+  - **Favoritos y Recientes** persistentes.
+- Se conserva ahora la metadata disponible del mando online: marca, modelo, fuente y ruta de origen.
+- Nuevos tipos de dispositivo en Mando, Biblioteca online y Aprender:
+  - TV;
+  - aire acondicionado;
+  - decodificador / set-top box;
+  - ventilador;
+  - streaming / Smart Box;
+  - DVD / Blu-ray;
+  - proyector;
+  - receptor A/V;
+  - cámara;
+  - barra de sonido.
+- Nuevas superficies de control adaptadas al tipo de aparato:
+  - decodificador/streaming con D-pad, Home, Guide, Info, canales, volumen, multimedia y teclado numérico;
+  - ventilador con velocidad, modo, oscilación, temporizador y luz;
+  - DVD/Blu-ray con Eject, navegación, multimedia y teclado;
+  - A/V/soundbar con fuente, volumen, mute, modos y navegación cuando existe;
+  - cámara con disparador, zoom y navegación cuando existe.
+- El reconocimiento de nombres de botones entiende ahora también `Eject`, `Speed +/-`, `Light`, `Shutter`, `Zoom +/-`, `Guide` e `Info` y conserva el resto en **Más controles**.
+- La biblioteca sigue combinando Flipper-IRDB, Flipper IRDB oficial, IRDB Web e importación HTTPS; no depende de una base propietaria.
+- El parser CSV IRDB acepta además perfiles Samsung y Pioneer compatibles con el codificador existente.
+- `Control` y `Códigos` mantienen intencionadamente su barrido POWER offline en TV, aire y proyector; las categorías nuevas se añaden mediante mando online, importación o aprendizaje.
+- Los datos de mandos 5.9 siguen siendo compatibles: favoritos, recencia y metadata nueva se cargan con valores por defecto cuando no existen.
+- El motor físico `IRTransmitter` no se ha modificado.
+
 ## 5.9 — 2026-10-04
 
 ### Novedades y cambios

@@ -61,6 +61,25 @@ struct OnlineIRLoadedRemote: Identifiable {
     let name: String
     let sourceDescription: String
     let signals: [ImportedIRSignal]
+    let brand: String?
+    let model: String?
+    let sourcePath: String?
+
+    init(
+        name: String,
+        sourceDescription: String,
+        signals: [ImportedIRSignal],
+        brand: String? = nil,
+        model: String? = nil,
+        sourcePath: String? = nil
+    ) {
+        self.name = name
+        self.sourceDescription = sourceDescription
+        self.signals = signals
+        self.brand = brand
+        self.model = model
+        self.sourcePath = sourcePath
+    }
 }
 
 private struct GitHubIRTree: Decodable {
@@ -94,6 +113,8 @@ final class OnlineIRLibrary: ObservableObject {
         brandRequestID = requestID
         searchRequestID = UUID()
         isSearching = false
+        results = []
+        status = "Busca por marca y, si lo conoces, por modelo."
 
         isLoadingBrands = true
         brandStatus = "Actualizando marcas…"
@@ -286,7 +307,10 @@ final class OnlineIRLibrary: ObservableObject {
         return OnlineIRLoadedRemote(
             name: remote.displayName,
             sourceDescription: "\(remote.source.title) · \(remote.path)",
-            signals: signals
+            signals: signals,
+            brand: remote.brand,
+            model: remote.model,
+            sourcePath: remote.path
         )
     }
 
@@ -349,6 +373,7 @@ final class OnlineIRLibrary: ObservableObject {
                 entry.path
                     .lowercased()
                     .hasSuffix(".ir"),
+                !entry.path.hasPrefix("_Converted_/"),
                 categoryMatches(
                     entry.path,
                     category: category,
@@ -456,7 +481,13 @@ final class OnlineIRLibrary: ObservableObject {
         guard !tree.truncated else { throw error("El índice de GitHub llegó incompleto.") }
 
         return tree.tree.compactMap { entry in
-            guard entry.type == "blob", entry.path.lowercased().hasSuffix(".ir") else { return nil }
+            guard
+                entry.type == "blob",
+                entry.path.lowercased().hasSuffix(".ir"),
+                !entry.path.hasPrefix("_Converted_/")
+            else {
+                return nil
+            }
             guard categoryMatches(entry.path, category: category, source: source) else { return nil }
 
             let pieces = entry.path.split(separator: "/").map(String.init)
@@ -506,6 +537,13 @@ final class OnlineIRLibrary: ObservableObject {
 
             let candidateBrand = parts[0]
             let candidateModel = parts[1]
+                .replacingOccurrences(of: "_", with: " ")
+            let profile = parts.last
+                .map { String($0.dropLast(4)) }
+                ?? ""
+            let displayModel = profile.isEmpty
+                ? candidateModel
+                : "\(candidateModel) · \(profile)"
             let full = "\(candidateBrand) \(candidateModel) \(path)"
             if !legacyCategoryMatches(candidateModel, category: category) && !deep { return nil }
 
@@ -527,7 +565,7 @@ final class OnlineIRLibrary: ObservableObject {
                 source: .legacyIRDB,
                 path: path,
                 brand: candidateBrand,
-                model: candidateModel,
+                model: displayModel,
                 categoryLabel: category.shortTitle,
                 downloadURL: u,
                 score: score
@@ -550,21 +588,96 @@ final class OnlineIRLibrary: ObservableObject {
         let n = clean(path)
         switch category {
         case .television:
-            return n.contains("tv") || n.contains("television")
+            return containsAny(n, [
+                "tvs", "television", "universal tv remotes",
+            ])
         case .airConditioner:
-            return source == .flipperCommunity && (n.contains("ac") || n.contains("air conditioner"))
+            return containsAny(n, [
+                "acs", "air conditioner",
+            ])
+        case .setTopBox:
+            return containsAny(n, [
+                "cable boxes", "dvb t", "tv tuner", "set top",
+                "settop", "stb", "converters",
+            ])
+        case .fan:
+            return containsAny(n, ["fans", "fan remote"])
+        case .streamingBox:
+            return containsAny(n, [
+                "streaming devices", "smart box", "tv box", "mediastick",
+            ])
+        case .dvdPlayer:
+            return containsAny(n, [
+                "dvd players", "dvd player", "blu ray", "laserdisc", "vcr",
+            ])
         case .projector:
             return n.contains("projector")
+        case .avReceiver:
+            return containsAny(n, [
+                "audio and video receivers", "av receiver", "a v receiver",
+                "receivers",
+            ])
+        case .camera:
+            return containsAny(n, ["cameras", "camera", "cctv"])
+        case .soundbar:
+            return containsAny(n, ["soundbars", "sound bars", "soundbar"])
         }
     }
 
     private func legacyCategoryMatches(_ value: String, category: IRDeviceCategory) -> Bool {
         let n = clean(value)
         switch category {
-        case .television: return n.contains("tv") || n.contains("television")
-        case .airConditioner: return n.contains("air") || n.contains("ac")
+        case .television:
+            return n.contains("television")
+                || n.contains("lcd tv")
+                || n.contains("plasma tv")
+                || hasToken(n, "tv")
+        case .airConditioner:
+            return n.contains("air conditioner")
+                || n.contains("aircon")
+                || n.contains("hvac")
+                || hasToken(n, "ac")
+        case .setTopBox:
+            return containsAny(n, [
+                "cable", "dvb", "tuner", "stb", "set top", "decoder",
+                "converter", "satellite",
+            ]) || hasToken(n, "sat")
+        case .fan:
+            return n.contains("fan")
+        case .streamingBox:
+            return containsAny(n, [
+                "stream", "streaming", "smart box", "tv box", "media player",
+                "media streamer", "tvbox", "thinbox",
+            ])
+        case .dvdPlayer:
+            return containsAny(n, ["dvd", "blu ray", "vcr", "laserdisc"])
         case .projector: return n.contains("projector")
+        case .avReceiver:
+            return containsAny(n, [
+                "receiver", "avr", "amplifier", "preamplifier",
+                "pre amplifier", "surround processor", "stereo",
+            ])
+        case .camera:
+            return containsAny(n, ["camera", "cctv"])
+        case .soundbar:
+            return containsAny(n, ["soundbar", "sound bar"])
         }
+    }
+
+    private func containsAny(
+        _ value: String,
+        _ tokens: [String]
+    ) -> Bool {
+        tokens.contains { value.contains($0) }
+    }
+
+    private func hasToken(
+        _ value: String,
+        _ token: String
+    ) -> Bool {
+        clean(value)
+            .split(separator: " ")
+            .contains { $0 == Substring(token) }
     }
 
     private func matchScore(
@@ -640,7 +753,7 @@ final class OnlineIRLibrary: ObservableObject {
     private func fetch(_ url: URL, maxBytes: Int) async throws -> Data {
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
-        request.setValue("IR-Universal/5.1 iOS", forHTTPHeaderField: "User-Agent")
+        request.setValue("IR-Universal/6.0 iOS", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw error(http.statusCode == 403 || http.statusCode == 429
@@ -701,6 +814,10 @@ enum IRDBCSVCodec {
                 code = IRProtocolEncoder.encode(protocolName: p, address: [d], command: [command], id: id)
             } else if proto == "JVC" || proto == "RCA" {
                 code = IRProtocolEncoder.encode(protocolName: proto, address: [d], command: [command], id: id)
+            } else if proto.hasPrefix("SAMSUNG") {
+                code = IRProtocolEncoder.encode(protocolName: "SAMSUNG32", address: [d], command: [command], id: id)
+            } else if proto == "PIONEER" {
+                code = IRProtocolEncoder.encode(protocolName: "PIONEER", address: [d], command: [command], id: id)
             } else {
                 code = nil
             }

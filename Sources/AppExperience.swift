@@ -341,7 +341,7 @@ struct PremiumRemoteTile: View {
                 )
 
                 Image(
-                    systemName: "remote.fill"
+                    systemName: IRAppSymbols.remote
                 )
                 .font(.title2)
                 .foregroundStyle(.red)
@@ -570,7 +570,7 @@ struct IRWelcomeView: View {
         )
     ] = [
         (
-            "remote.fill",
+            IRAppSymbols.remote,
             "Todo tu infrarrojo en un sitio",
             "Controla equipos, encuentra códigos online, guarda mandos y conserva los que ya sabes que funcionan."
         ),

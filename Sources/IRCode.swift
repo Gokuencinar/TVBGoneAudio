@@ -94,15 +94,48 @@ struct IRCode: Identifiable, Hashable {
 enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
     case television
     case airConditioner
+    case setTopBox
+    case fan
+    case streamingBox
+    case dvdPlayer
     case projector
+    case avReceiver
+    case camera
+    case soundbar
 
     var id: String { rawValue }
+
+    static let scanCategories: [IRDeviceCategory] = [
+        .television,
+        .airConditioner,
+        .projector,
+    ]
+
+    static let remoteCategories: [IRDeviceCategory] = [
+        .television,
+        .airConditioner,
+        .setTopBox,
+        .fan,
+        .streamingBox,
+        .dvdPlayer,
+        .projector,
+        .avReceiver,
+        .camera,
+        .soundbar,
+    ]
 
     var shortTitle: String {
         switch self {
         case .television: return "TV"
         case .airConditioner: return "Aire"
+        case .setTopBox: return "Decodif."
+        case .fan: return "Ventilador"
+        case .streamingBox: return "Smart box"
+        case .dvdPlayer: return "DVD/Blu-ray"
         case .projector: return "Proyector"
+        case .avReceiver: return "A/V"
+        case .camera: return "Cámara"
+        case .soundbar: return "Soundbar"
         }
     }
 
@@ -110,7 +143,14 @@ enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .television: return "Televisores"
         case .airConditioner: return "Aires acondicionados"
+        case .setTopBox: return "Decodificadores / TV Box"
+        case .fan: return "Ventiladores"
+        case .streamingBox: return "Streaming / Smart Box"
+        case .dvdPlayer: return "DVD / Blu-ray"
         case .projector: return "Proyectores"
+        case .avReceiver: return "Receptores A/V"
+        case .camera: return "Cámaras"
+        case .soundbar: return "Barras de sonido"
         }
     }
 
@@ -118,7 +158,14 @@ enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .television: return "Mi TV"
         case .airConditioner: return "Mi aire"
+        case .setTopBox: return "Mi decodificador"
+        case .fan: return "Mi ventilador"
+        case .streamingBox: return "Mi Smart Box"
+        case .dvdPlayer: return "Mi reproductor"
         case .projector: return "Mi proyector"
+        case .avReceiver: return "Mi receptor A/V"
+        case .camera: return "Mi cámara"
+        case .soundbar: return "Mi barra de sonido"
         }
     }
 
@@ -127,6 +174,7 @@ enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
         case .television: return "APAGAR TELEVISORES"
         case .airConditioner: return "APAGAR AIRES"
         case .projector: return "APAGAR PROYECTORES"
+        default: return "PROBAR POWER"
         }
     }
 
@@ -134,7 +182,14 @@ enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .television: return "tv.fill"
         case .airConditioner: return "snowflake"
+        case .setTopBox: return "shippingbox.fill"
+        case .fan: return "wind"
+        case .streamingBox: return "play.rectangle.fill"
+        case .dvdPlayer: return "opticaldisc"
         case .projector: return "video.fill"
+        case .avReceiver: return "speaker.wave.3.fill"
+        case .camera: return "camera.fill"
+        case .soundbar: return "speaker.wave.2.fill"
         }
     }
 
@@ -146,8 +201,28 @@ enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
             return "Recorre señales POWER/OFF de mandos de aire acondicionado, priorizando capturas RAW."
         case .projector:
             return "Recorre señales POWER/OFF de proyectores de distintas marcas y modelos."
+        case .setTopBox:
+            return "Busca un mando completo por operador, marca o modelo en las bibliotecas IR online."
+        case .fan:
+            return "Busca mandos de ventilador con POWER, velocidad, oscilación, modo y temporizador cuando estén disponibles."
+        case .streamingBox:
+            return "Busca mandos de TV Box y dispositivos de streaming por marca o modelo."
+        case .dvdPlayer:
+            return "Busca mandos de DVD y Blu-ray con navegación y controles multimedia."
+        case .avReceiver:
+            return "Busca receptores A/V con volumen, fuente, mute, navegación y modos de sonido."
+        case .camera:
+            return "Busca mandos IR para cámaras compatibles."
+        case .soundbar:
+            return "Busca barras de sonido con POWER, volumen, mute, fuente y modos de audio."
         }
     }
+}
+
+enum IRAppSymbols {
+    // SF Symbols 4 / iOS 16 compatible. `remote.fill` can render blank on iOS 16.
+    static let remote = "av.remote.fill"
+    static let remoteOutline = "av.remote"
 }
 
 enum TVRegion: String, CaseIterable, Identifiable, Codable {

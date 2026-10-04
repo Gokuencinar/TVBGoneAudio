@@ -69,7 +69,7 @@ struct ContentView: View {
                 category: $category
             )
             .tabItem {
-                Label("Mando", systemImage: "remote.fill")
+                Label("Mando", systemImage: IRAppSymbols.remote)
             }
 
             LearnIRView(
@@ -223,6 +223,9 @@ private struct ControlView: View {
             .navigationTitle("TVBGoneAudio")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
+                if !IRDeviceCategory.scanCategories.contains(category) {
+                    category = .television
+                }
                 transmitter.inspectOutputRoute()
             }
             .sheet(isPresented: $showWorkedSheet) {
@@ -983,6 +986,9 @@ private struct ManualCodeView: View {
                 }
                 .padding()
                 .onAppear {
+                    if !IRDeviceCategory.scanCategories.contains(category) {
+                        category = .television
+                    }
                     normalizeSelection()
                 }
                 .onChange(of: category) { _ in
@@ -1946,7 +1952,7 @@ struct SavedDevicesView: View {
                         LibraryMetricCard(
                             value: customRemotes.remotes.count,
                             label: "Mandos",
-                            systemImage: "remote.fill"
+                            systemImage: IRAppSymbols.remote
                         )
 
                         LibraryMetricCard(
@@ -1960,7 +1966,7 @@ struct SavedDevicesView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Label(
                                 "Mis mandos",
-                                systemImage: "remote.fill"
+                                systemImage: IRAppSymbols.remote
                             )
                             .font(.title3.bold())
 
@@ -2066,7 +2072,7 @@ struct SavedDevicesView: View {
                     {
                         EmptyStateView(
                             title: "Tu biblioteca está vacía",
-                            systemImage: "remote",
+                            systemImage: IRAppSymbols.remoteOutline,
                             message:
                                 "Cuando encuentres un código que funcione, aparecerá aquí para que puedas volver a usarlo en segundos."
                         )
@@ -2328,16 +2334,31 @@ private struct SettingsInfoView: View {
 struct DeviceCategoryPicker: View {
     @Binding var category: IRDeviceCategory
     let disabled: Bool
+    var categories: [IRDeviceCategory] = IRDeviceCategory.scanCategories
 
-    var body: some View {
+    private var picker: some View {
         Picker("Tipo", selection: $category) {
-            ForEach(IRDeviceCategory.allCases) { item in
-                Text(item.shortTitle).tag(item)
+            ForEach(categories) { item in
+                Label(item.shortTitle, systemImage: item.systemImage)
+                    .tag(item)
             }
         }
-        .pickerStyle(.segmented)
-                    .irOLEDControlSurface()
-        .disabled(disabled)
+    }
+
+    @ViewBuilder
+    var body: some View {
+        if categories.count <= 4 {
+            picker
+                .pickerStyle(.segmented)
+                .irOLEDControlSurface()
+                .disabled(disabled)
+        } else {
+            picker
+                .pickerStyle(.menu)
+                .tint(IRCyberPalette.cyan)
+                .irOLEDControlSurface()
+                .disabled(disabled)
+        }
     }
 }
 
@@ -2598,7 +2619,9 @@ private struct LearnIRView: View {
                         category: $category,
                         disabled:
                             learner.isRecording
-                            || transmitter.isScanning
+                            || transmitter.isScanning,
+                        categories:
+                            IRDeviceCategory.remoteCategories
                     )
 
                     studioTools
@@ -2706,7 +2729,7 @@ private struct LearnIRView: View {
                     Label(
                         "Crear mando",
                         systemImage:
-                            "remote.fill"
+                            IRAppSymbols.remote
                     )
                     .frame(maxWidth: .infinity)
                 }
@@ -3164,7 +3187,7 @@ private struct LearnIRView: View {
                 title:
                     "Aún no hay botones aprendidos",
                 systemImage:
-                    "remote",
+                    IRAppSymbols.remoteOutline,
                 message:
                     "Puedes aprenderlos con un receptor IR o importar un archivo .ir de Flipper."
             )
@@ -3357,6 +3380,78 @@ private struct LearnIRView: View {
                 "Back",
                 "Mute",
                 "Freeze",
+            ]
+
+        case .setTopBox, .streamingBox:
+            return [
+                "Power",
+                "Home",
+                "Menu",
+                "OK",
+                "Arriba",
+                "Abajo",
+                "Izquierda",
+                "Derecha",
+                "Back",
+                "Channel +",
+                "Channel -",
+                "Vol +",
+                "Vol -",
+                "Mute",
+            ]
+
+        case .fan:
+            return [
+                "Power",
+                "Speed +",
+                "Speed -",
+                "Mode",
+                "Swing",
+                "Timer",
+                "Light",
+            ]
+
+        case .dvdPlayer:
+            return [
+                "Power",
+                "Eject",
+                "Play",
+                "Pause",
+                "Stop",
+                "Rewind",
+                "Fast Forward",
+                "Menu",
+                "OK",
+                "Arriba",
+                "Abajo",
+                "Izquierda",
+                "Derecha",
+                "Back",
+            ]
+
+        case .avReceiver, .soundbar:
+            return [
+                "Power",
+                "Vol +",
+                "Vol -",
+                "Mute",
+                "Input",
+                "Mode",
+                "Menu",
+            ]
+
+        case .camera:
+            return [
+                "Power",
+                "Shutter",
+                "Zoom +",
+                "Zoom -",
+                "Menu",
+                "OK",
+                "Arriba",
+                "Abajo",
+                "Izquierda",
+                "Derecha",
             ]
         }
     }

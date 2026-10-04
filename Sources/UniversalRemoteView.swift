@@ -14,6 +14,8 @@ struct UniversalRemoteHubView: View {
     private var selectedTargetKey = ""
 
     @State private var showLibrary = false
+    @State private var showAddRemote = false
+    @State private var knownRemoteCount = 0
 
     private var activeTargetKey: String {
         if targetExists(selectedTargetKey) {
@@ -64,6 +66,7 @@ struct UniversalRemoteHubView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     headerCard
+                    remoteShelfCard
 
                     if let remote = selectedRemote {
                         targetSelector
@@ -90,14 +93,44 @@ struct UniversalRemoteHubView: View {
             .irOLEDScreen()
             .navigationTitle("Mando")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showAddRemote = true
+                        IRHaptics.tap()
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Añadir mando")
+                }
+            }
             .onAppear {
+                knownRemoteCount = customRemotes.remotes.count
                 normalizeSelection()
             }
-            .onChange(of: customRemotes.remotes) { _ in
+            .onChange(of: customRemotes.remotes) { newRemotes in
+                if
+                    newRemotes.count > knownRemoteCount,
+                    let newest = newRemotes.last
+                {
+                    selectedTargetKey = targetKey(for: newest)
+                    category = newest.category
+                }
+                knownRemoteCount = newRemotes.count
                 normalizeSelection()
             }
             .onChange(of: savedDevices.devices) { _ in
                 normalizeSelection()
+            }
+            .onChange(of: transmitter.transmissionPulse) { _ in
+                guard
+                    transmitter.currentCodeID?.hasPrefix("remote:") == true,
+                    let remote = remoteForCurrentTransmission()
+                else {
+                    return
+                }
+
+                customRemotes.recordUse(remote)
             }
             .sheet(isPresented: $showLibrary) {
                 SavedDevicesView(
@@ -105,6 +138,13 @@ struct UniversalRemoteHubView: View {
                     savedDevices: savedDevices,
                     customRemotes: customRemotes,
                     history: history
+                )
+            }
+            .sheet(isPresented: $showAddRemote) {
+                RemoteAddDeviceSheet(
+                    transmitter: transmitter,
+                    learnedSignals: learnedSignals,
+                    customRemotes: customRemotes
                 )
             }
         }
@@ -129,7 +169,7 @@ struct UniversalRemoteHubView: View {
                 )
                 .frame(width: 58, height: 58)
 
-                Image(systemName: "remote.fill")
+                Image(systemName: IRAppSymbols.remote)
                     .font(.title2.bold())
                     .foregroundStyle(IRCyberPalette.cyan)
             }
@@ -152,6 +192,121 @@ struct UniversalRemoteHubView: View {
         .irCard(cornerRadius: 20)
     }
 
+    private var remoteShelfCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(
+                    customRemotes.remotes.contains(where: { $0.isFavorite || $0.lastUsedAt != nil })
+                    ? "Favoritos y recientes"
+                    : "Mis mandos",
+                    systemImage: IRAppSymbols.remote
+                )
+                    .font(.headline)
+
+                Spacer()
+
+                Text("\(customRemotes.remotes.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 10) {
+                    ForEach(shelfRemotes) { remote in
+                        Button {
+                            select(
+                                targetKey(for: remote),
+                                category: remote.category
+                            )
+                        } label: {
+                            VStack(spacing: 8) {
+                                ZStack {
+                                    RoundedRectangle(
+                                        cornerRadius: 14,
+                                        style: .continuous
+                                    )
+                                    .fill(
+                                        activeTargetKey == targetKey(for: remote)
+                                        ? IRCyberPalette.cyan.opacity(0.20)
+                                        : Color.white.opacity(0.035)
+                                    )
+                                    .frame(width: 58, height: 58)
+
+                                    Image(systemName: remote.category.systemImage)
+                                        .font(.title2)
+
+                                    if remote.isFavorite {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption2)
+                                            .foregroundStyle(.yellow)
+                                            .offset(x: 20, y: -20)
+                                    }
+                                }
+
+                                Text(remote.name)
+                                    .font(.caption.bold())
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.center)
+                                    .frame(width: 100)
+                            }
+                            .frame(minHeight: 98)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(
+                            activeTargetKey == targetKey(for: remote)
+                            ? IRCyberPalette.cyan
+                            : .primary
+                        )
+                        .accessibilityLabel("Usar mando \(remote.name)")
+                    }
+
+                    Button {
+                        showAddRemote = true
+                        IRHaptics.tap()
+                    } label: {
+                        VStack(spacing: 8) {
+                            ZStack {
+                                RoundedRectangle(
+                                    cornerRadius: 14,
+                                    style: .continuous
+                                )
+                                .stroke(
+                                    IRCyberPalette.cyan.opacity(0.55),
+                                    style: StrokeStyle(
+                                        lineWidth: 1.2,
+                                        dash: [5, 4]
+                                    )
+                                )
+                                .frame(width: 58, height: 58)
+
+                                Image(systemName: "plus")
+                                    .font(.title2.bold())
+                            }
+
+                            Text("Añadir")
+                                .font(.caption.bold())
+                                .frame(width: 100)
+                        }
+                        .frame(minHeight: 98)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(IRCyberPalette.cyan)
+                    .accessibilityLabel("Añadir mando")
+                }
+            }
+
+            if customRemotes.remotes.isEmpty {
+                Text(
+                    "Añade un dispositivo, elige marca/modelo, prueba su POWER y guarda el mando completo."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 18)
+    }
+
     @ViewBuilder
     private var targetSelector: some View {
         if selectedRemote != nil || selectedDevice != nil {
@@ -162,7 +317,7 @@ struct UniversalRemoteHubView: View {
                         systemImage:
                             selectedRemote?.category.systemImage
                             ?? selectedDevice?.category.systemImage
-                            ?? "remote.fill"
+                            ?? IRAppSymbols.remote
                     )
                     .font(.headline)
 
@@ -179,6 +334,31 @@ struct UniversalRemoteHubView: View {
                             ? "power"
                             : "circle.grid.3x3.fill"
                     )
+
+                    if let selectedRemote {
+                        Button {
+                            customRemotes.toggleFavorite(selectedRemote)
+                        } label: {
+                            Image(
+                                systemName:
+                                    selectedRemote.isFavorite
+                                    ? "star.fill"
+                                    : "star"
+                            )
+                            .font(.headline)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(
+                            selectedRemote.isFavorite
+                            ? Color.yellow
+                            : IRCyberPalette.cyan
+                        )
+                        .accessibilityLabel(
+                            selectedRemote.isFavorite
+                            ? "Quitar de favoritos"
+                            : "Añadir a favoritos"
+                        )
+                    }
                 }
 
                 Menu {
@@ -313,13 +493,9 @@ struct UniversalRemoteHubView: View {
                 .multilineTextAlignment(.center)
             }
 
-            NavigationLink {
-                OnlineIRLibraryView(
-                    transmitter: transmitter,
-                    learnedSignals: learnedSignals,
-                    customRemotes: customRemotes,
-                    category: $category
-                )
+            Button {
+                showAddRemote = true
+                IRHaptics.tap()
             } label: {
                 Label(
                     "BUSCAR MANDO COMPLETO",
@@ -341,7 +517,7 @@ struct UniversalRemoteHubView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "remote")
+            Image(systemName: IRAppSymbols.remoteOutline)
                 .font(.system(size: 44))
                 .foregroundStyle(IRCyberPalette.cyan)
 
@@ -355,13 +531,9 @@ struct UniversalRemoteHubView: View {
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
 
-            NavigationLink {
-                OnlineIRLibraryView(
-                    transmitter: transmitter,
-                    learnedSignals: learnedSignals,
-                    customRemotes: customRemotes,
-                    category: $category
-                )
+            Button {
+                showAddRemote = true
+                IRHaptics.tap()
             } label: {
                 Label(
                     "BUSCAR MANDO ONLINE",
@@ -410,13 +582,9 @@ struct UniversalRemoteHubView: View {
             .buttonStyle(.plain)
 
             if !customRemotes.remotes.isEmpty {
-                NavigationLink {
-                    OnlineIRLibraryView(
-                        transmitter: transmitter,
-                        learnedSignals: learnedSignals,
-                        customRemotes: customRemotes,
-                        category: $category
-                    )
+                Button {
+                    showAddRemote = true
+                    IRHaptics.tap()
                 } label: {
                     HStack {
                         Label(
@@ -503,7 +671,36 @@ struct UniversalRemoteHubView: View {
     ) {
         selectedTargetKey = key
         self.category = category
+
         IRHaptics.tap()
+    }
+
+    private var shelfRemotes: [CustomRemote] {
+        customRemotes.remotes.sorted { lhs, rhs in
+            if lhs.isFavorite != rhs.isFavorite {
+                return lhs.isFavorite && !rhs.isFavorite
+            }
+
+            let lhsDate = lhs.lastUsedAt ?? lhs.createdAt
+            let rhsDate = rhs.lastUsedAt ?? rhs.createdAt
+            return lhsDate > rhsDate
+        }
+    }
+
+    private func remoteForCurrentTransmission() -> CustomRemote? {
+        guard
+            let codeID = transmitter.currentCodeID,
+            codeID.hasPrefix("remote:"),
+            let buttonID = UUID(
+                uuidString: String(codeID.dropFirst("remote:".count))
+            )
+        else {
+            return nil
+        }
+
+        return customRemotes.remotes.first { remote in
+            remote.buttons.contains { $0.id == buttonID }
+        }
     }
 
     private func targetKey(
@@ -555,13 +752,164 @@ struct UniversalRemoteHubView: View {
     }
 }
 
+private struct RemoteAddDeviceSheet: View {
+    @ObservedObject var transmitter: IRTransmitter
+    @ObservedObject var learnedSignals: LearnedIRStore
+    @ObservedObject var customRemotes: CustomRemoteStore
+
+    @Environment(\.dismiss)
+    private var dismiss
+
+    @State private var initialRemoteCount = -1
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 128), spacing: 12),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Añadir dispositivo")
+                            .font(.title2.bold())
+
+                        Text(
+                            "Elige el tipo de aparato. Después podrás seleccionar marca, buscar el modelo, probar sus señales y guardar el mando completo."
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(IRDeviceCategory.remoteCategories) { item in
+                            NavigationLink {
+                                RemoteCategoryBrowser(
+                                    initialCategory: item,
+                                    transmitter: transmitter,
+                                    learnedSignals: learnedSignals,
+                                    customRemotes: customRemotes
+                                )
+                            } label: {
+                                VStack(spacing: 10) {
+                                    ZStack {
+                                        RoundedRectangle(
+                                            cornerRadius: 16,
+                                            style: .continuous
+                                        )
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    IRCyberPalette.cyan.opacity(0.16),
+                                                    IRCyberPalette.magenta.opacity(0.06),
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(height: 74)
+
+                                        Image(systemName: item.systemImage)
+                                            .font(.system(size: 28, weight: .semibold))
+                                            .foregroundStyle(IRCyberPalette.cyan)
+                                    }
+
+                                    Text(item.shortTitle)
+                                        .font(.subheadline.bold())
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(2)
+                                        .frame(minHeight: 36)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(10)
+                                .irCard(cornerRadius: 18)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    Text(
+                        "Fuentes: Flipper-IRDB, Flipper IRDB oficial e IRDB Web. La disponibilidad exacta depende de los mandos publicados para cada marca/modelo."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .padding()
+            }
+            .irOLEDScreen()
+            .navigationTitle("Añadir mando")
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if initialRemoteCount < 0 {
+                    initialRemoteCount = customRemotes.remotes.count
+                }
+            }
+            .onChange(of: customRemotes.remotes) { remotes in
+                guard initialRemoteCount >= 0 else {
+                    initialRemoteCount = remotes.count
+                    return
+                }
+
+                if remotes.count > initialRemoteCount {
+                    dismiss()
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct RemoteCategoryBrowser: View {
+    @ObservedObject var transmitter: IRTransmitter
+    @ObservedObject var learnedSignals: LearnedIRStore
+    @ObservedObject var customRemotes: CustomRemoteStore
+
+    @State private var category: IRDeviceCategory
+
+    init(
+        initialCategory: IRDeviceCategory,
+        transmitter: IRTransmitter,
+        learnedSignals: LearnedIRStore,
+        customRemotes: CustomRemoteStore
+    ) {
+        _category = State(initialValue: initialCategory)
+        self.transmitter = transmitter
+        self.learnedSignals = learnedSignals
+        self.customRemotes = customRemotes
+    }
+
+    var body: some View {
+        OnlineIRLibraryView(
+            transmitter: transmitter,
+            learnedSignals: learnedSignals,
+            customRemotes: customRemotes,
+            category: $category
+        )
+    }
+}
+
 private struct UniversalRemoteSurface: View {
     let remote: CustomRemote
     @ObservedObject var transmitter: IRTransmitter
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 94), spacing: 10),
-    ]
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
+
+    private var columns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible())]
+        }
+
+        return [
+            GridItem(.adaptive(minimum: 94), spacing: 10),
+        ]
+    }
 
     private var matcher: RemoteButtonMatcher {
         RemoteButtonMatcher(buttons: remote.buttons)
@@ -588,8 +936,18 @@ private struct UniversalRemoteSurface: View {
             return RemoteSemantic.televisionStandard
         case .airConditioner:
             return RemoteSemantic.airConditionerStandard
+        case .setTopBox, .streamingBox:
+            return RemoteSemantic.setTopBoxStandard
+        case .fan:
+            return RemoteSemantic.fanStandard
+        case .dvdPlayer:
+            return RemoteSemantic.discPlayerStandard
         case .projector:
             return RemoteSemantic.projectorStandard
+        case .avReceiver, .soundbar:
+            return RemoteSemantic.audioStandard
+        case .camera:
+            return RemoteSemantic.cameraStandard
         }
     }
 
@@ -602,8 +960,18 @@ private struct UniversalRemoteSurface: View {
                 televisionControls
             case .airConditioner:
                 airConditionerControls
+            case .setTopBox, .streamingBox:
+                setTopBoxControls
+            case .fan:
+                fanControls
+            case .dvdPlayer:
+                discPlayerControls
             case .projector:
                 projectorControls
+            case .avReceiver, .soundbar:
+                audioControls
+            case .camera:
+                cameraControls
             }
 
             if !extraButtons.isEmpty {
@@ -619,7 +987,7 @@ private struct UniversalRemoteSurface: View {
                     .font(.title2.bold())
                     .lineLimit(2)
 
-                Text(remote.category.title)
+                Text(remoteSubtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -635,6 +1003,23 @@ private struct UniversalRemoteSurface: View {
         .padding(.horizontal, 4)
     }
 
+    private var remoteSubtitle: String {
+        let brand = remote.brand?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let model = remote.model?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if !brand.isEmpty && !model.isEmpty
+            && brand.caseInsensitiveCompare(model) != .orderedSame
+        {
+            return "\(brand) · \(model) · \(remote.category.shortTitle)"
+        }
+
+        if !brand.isEmpty {
+            return "\(brand) · \(remote.category.shortTitle)"
+        }
+
+        return remote.category.title
+    }
+
     private var televisionControls: some View {
         VStack(spacing: 16) {
             HStack(spacing: 12) {
@@ -648,7 +1033,7 @@ private struct UniversalRemoteSurface: View {
                 Spacer()
 
                 RemotePowerButton(
-                    button: matcher.button(for: .power),
+                    button: matcher.primaryPowerButton(),
                     transmitter: transmitter
                 )
 
@@ -772,7 +1157,7 @@ private struct UniversalRemoteSurface: View {
                 Spacer()
 
                 RemotePowerButton(
-                    button: matcher.button(for: .power),
+                    button: matcher.primaryPowerButton(),
                     transmitter: transmitter
                 )
 
@@ -868,7 +1253,7 @@ private struct UniversalRemoteSurface: View {
                 Spacer()
 
                 RemotePowerButton(
-                    button: matcher.button(for: .power),
+                    button: matcher.primaryPowerButton(),
                     transmitter: transmitter
                 )
 
@@ -909,6 +1294,394 @@ private struct UniversalRemoteSurface: View {
         .irCard(cornerRadius: 26)
     }
 
+    private var setTopBoxControls: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                RemoteFunctionButton(
+                    title: "Input",
+                    systemImage: "rectangle.on.rectangle",
+                    button: matcher.button(for: .input),
+                    transmitter: transmitter
+                )
+
+                Spacer()
+
+                RemotePowerButton(
+                    button: matcher.primaryPowerButton(),
+                    transmitter: transmitter
+                )
+
+                Spacer()
+
+                RemoteFunctionButton(
+                    title: "Mute",
+                    systemImage: "speaker.slash.fill",
+                    button: matcher.button(for: .mute),
+                    transmitter: transmitter
+                )
+            }
+
+            RemoteDPad(
+                matcher: matcher,
+                transmitter: transmitter
+            )
+
+            HStack(spacing: 10) {
+                remoteSemanticButton(
+                    .back,
+                    title: "Atrás",
+                    icon: "arrow.uturn.backward"
+                )
+                remoteSemanticButton(
+                    .home,
+                    title: "Inicio",
+                    icon: "house.fill"
+                )
+                remoteSemanticButton(
+                    .menu,
+                    title: "Menú",
+                    icon: "list.bullet"
+                )
+            }
+
+            HStack(spacing: 10) {
+                remoteSemanticButton(
+                    .guide,
+                    title: "Guía",
+                    icon: "list.bullet.rectangle"
+                )
+                remoteSemanticButton(
+                    .info,
+                    title: "Info",
+                    icon: "info.circle"
+                )
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 48) {
+                    volumeRocker
+                    channelRocker
+                }
+
+                VStack(spacing: 12) {
+                    volumeRocker
+                    channelRocker
+                }
+            }
+
+            if hasPlaybackControls {
+                playbackControls
+            }
+
+            if hasNumberPad {
+                numberPad
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 26)
+    }
+
+    private var fanControls: some View {
+        VStack(spacing: 18) {
+            HStack(spacing: 12) {
+                RemoteFunctionButton(
+                    title: "Mode",
+                    systemImage: "arrow.triangle.2.circlepath",
+                    button: matcher.button(for: .mode),
+                    transmitter: transmitter
+                )
+
+                Spacer()
+
+                RemotePowerButton(
+                    button: matcher.primaryPowerButton(),
+                    transmitter: transmitter
+                )
+
+                Spacer()
+
+                RemoteFunctionButton(
+                    title: "Luz",
+                    systemImage: "lightbulb.fill",
+                    button: matcher.button(for: .light),
+                    transmitter: transmitter
+                )
+            }
+
+            HStack(spacing: 12) {
+                RemoteTemperatureButton(
+                    title: "VEL −",
+                    systemImage: "minus",
+                    button: matcher.button(for: .speedDown),
+                    transmitter: transmitter
+                )
+
+                Image(systemName: "wind")
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundStyle(IRCyberPalette.cyan)
+                    .frame(minWidth: 64)
+
+                RemoteTemperatureButton(
+                    title: "VEL +",
+                    systemImage: "plus",
+                    button: matcher.button(for: .speedUp),
+                    transmitter: transmitter
+                )
+            }
+
+            LazyVGrid(columns: columns, spacing: 10) {
+                remoteSemanticButton(
+                    .swing,
+                    title: "Oscilar",
+                    icon: "arrow.left.and.right"
+                )
+                remoteSemanticButton(
+                    .timer,
+                    title: "Timer",
+                    icon: "timer"
+                )
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 26)
+    }
+
+    private var discPlayerControls: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                RemoteFunctionButton(
+                    title: "Eject",
+                    systemImage: "eject.fill",
+                    button: matcher.button(for: .eject),
+                    transmitter: transmitter
+                )
+
+                Spacer()
+
+                RemotePowerButton(
+                    button: matcher.primaryPowerButton(),
+                    transmitter: transmitter
+                )
+
+                Spacer()
+
+                RemoteFunctionButton(
+                    title: "Menú",
+                    systemImage: "list.bullet",
+                    button: matcher.button(for: .menu),
+                    transmitter: transmitter
+                )
+            }
+
+            RemoteDPad(
+                matcher: matcher,
+                transmitter: transmitter
+            )
+
+            HStack(spacing: 10) {
+                remoteSemanticButton(
+                    .back,
+                    title: "Atrás",
+                    icon: "arrow.uturn.backward"
+                )
+                remoteSemanticButton(
+                    .info,
+                    title: "Info",
+                    icon: "info.circle"
+                )
+            }
+
+            if hasPlaybackControls {
+                playbackControls
+            }
+
+            if hasNumberPad {
+                numberPad
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 26)
+    }
+
+    private var audioControls: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                RemoteFunctionButton(
+                    title: "Input",
+                    systemImage: "rectangle.on.rectangle",
+                    button: matcher.button(for: .input),
+                    transmitter: transmitter
+                )
+
+                Spacer()
+
+                RemotePowerButton(
+                    button: matcher.primaryPowerButton(),
+                    transmitter: transmitter
+                )
+
+                Spacer()
+
+                RemoteFunctionButton(
+                    title: "Mute",
+                    systemImage: "speaker.slash.fill",
+                    button: matcher.button(for: .mute),
+                    transmitter: transmitter
+                )
+            }
+
+            HStack(spacing: 28) {
+                volumeRocker
+
+                VStack(spacing: 10) {
+                    remoteSemanticButton(
+                        .mode,
+                        title: "Mode",
+                        icon: "waveform"
+                    )
+                    remoteSemanticButton(
+                        .menu,
+                        title: "Menú",
+                        icon: "list.bullet"
+                    )
+                }
+            }
+
+            if [
+                RemoteSemantic.up,
+                .down,
+                .left,
+                .right,
+                .ok,
+            ].contains(where: { matcher.button(for: $0) != nil }) {
+                RemoteDPad(
+                    matcher: matcher,
+                    transmitter: transmitter
+                )
+            }
+
+            if matcher.button(for: .back) != nil {
+                remoteSemanticButton(
+                    .back,
+                    title: "Atrás",
+                    icon: "arrow.uturn.backward"
+                )
+            }
+
+            if hasPlaybackControls {
+                playbackControls
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 26)
+    }
+
+    private var cameraControls: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                RemoteFunctionButton(
+                    title: "Zoom −",
+                    systemImage: "minus.magnifyingglass",
+                    button: matcher.button(for: .zoomOut),
+                    transmitter: transmitter
+                )
+
+                RemotePowerButton(
+                    button: matcher.primaryPowerButton(),
+                    transmitter: transmitter
+                )
+
+                RemoteFunctionButton(
+                    title: "Zoom +",
+                    systemImage: "plus.magnifyingglass",
+                    button: matcher.button(for: .zoomIn),
+                    transmitter: transmitter
+                )
+            }
+
+            Button {
+                send(.shutter)
+            } label: {
+                Label("DISPARAR", systemImage: "camera.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(IRCyberPalette.magenta)
+            .disabled(matcher.button(for: .shutter) == nil)
+            .accessibilityLabel("Disparar cámara")
+
+            if [
+                RemoteSemantic.up,
+                .down,
+                .left,
+                .right,
+                .ok,
+            ].contains(where: { matcher.button(for: $0) != nil }) {
+                RemoteDPad(
+                    matcher: matcher,
+                    transmitter: transmitter
+                )
+            }
+
+            HStack(spacing: 10) {
+                remoteSemanticButton(
+                    .back,
+                    title: "Atrás",
+                    icon: "arrow.uturn.backward"
+                )
+                remoteSemanticButton(
+                    .menu,
+                    title: "Menú",
+                    icon: "list.bullet"
+                )
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 26)
+    }
+
+    private var playbackControls: some View {
+        HStack(spacing: 8) {
+            compactSemanticButton(
+                .rewind,
+                title: "Retroceder",
+                icon: "backward.fill"
+            )
+
+            if matcher.button(for: .playPause) != nil {
+                compactSemanticButton(
+                    .playPause,
+                    title: "Reproducir o pausar",
+                    icon: "playpause.fill"
+                )
+            } else {
+                compactSemanticButton(
+                    .play,
+                    title: "Reproducir",
+                    icon: "play.fill"
+                )
+                compactSemanticButton(
+                    .pause,
+                    title: "Pausar",
+                    icon: "pause.fill"
+                )
+            }
+
+            compactSemanticButton(
+                .stop,
+                title: "Detener",
+                icon: "stop.fill"
+            )
+            compactSemanticButton(
+                .fastForward,
+                title: "Avanzar",
+                icon: "forward.fill"
+            )
+        }
+    }
+
     private var extraControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -942,7 +1715,11 @@ private struct UniversalRemoteSurface: View {
 
                             Text(button.name)
                                 .font(.caption.bold())
-                                .lineLimit(2)
+                                .lineLimit(
+                                    dynamicTypeSize.isAccessibilitySize
+                                    ? nil
+                                    : 2
+                                )
                                 .multilineTextAlignment(.center)
                         }
                         .frame(
@@ -1360,6 +2137,21 @@ private struct RemoteDPad: View {
 private struct RemoteButtonMatcher {
     let buttons: [CustomRemoteButton]
 
+    func primaryPowerButton() -> CustomRemoteButton? {
+        if let toggle = button(for: .power) {
+            return toggle
+        }
+
+        let fallbackAliases: Set<String> = [
+            "power on", "power off", "on", "off",
+            "encender solo", "apagar solo",
+        ]
+
+        return buttons.first {
+            fallbackAliases.contains(normalize($0.name))
+        }
+    }
+
     func button(
         for semantic: RemoteSemantic
     ) -> CustomRemoteButton? {
@@ -1467,6 +2259,15 @@ private enum RemoteSemantic: String, Identifiable {
     case timer
     case auto
     case freeze
+    case eject
+    case speedUp
+    case speedDown
+    case light
+    case shutter
+    case zoomIn
+    case zoomOut
+    case guide
+    case info
 
     var id: String { rawValue }
 
@@ -1489,6 +2290,41 @@ private enum RemoteSemantic: String, Identifiable {
         .power, .input, .mute,
         .up, .down, .left, .right, .ok,
         .back, .menu, .freeze,
+    ]
+
+    static let setTopBoxStandard: [RemoteSemantic] = [
+        .power, .input, .mute,
+        .volumeUp, .volumeDown,
+        .channelUp, .channelDown,
+        .up, .down, .left, .right, .ok,
+        .back, .home, .menu, .guide, .info,
+        .rewind, .play, .pause, .playPause, .stop, .fastForward,
+    ] + numberSemantics
+
+    static let fanStandard: [RemoteSemantic] = [
+        .power, .mode, .speedUp, .speedDown,
+        .swing, .timer, .light,
+    ]
+
+    static let discPlayerStandard: [RemoteSemantic] = [
+        .power, .eject,
+        .up, .down, .left, .right, .ok,
+        .back, .menu, .info,
+        .rewind, .play, .pause, .playPause, .stop, .fastForward,
+    ] + numberSemantics
+
+    static let audioStandard: [RemoteSemantic] = [
+        .power, .input, .mute,
+        .volumeUp, .volumeDown,
+        .mode, .menu,
+        .up, .down, .left, .right, .ok, .back,
+        .rewind, .play, .pause, .playPause, .stop, .fastForward,
+    ]
+
+    static let cameraStandard: [RemoteSemantic] = [
+        .power, .shutter, .zoomIn, .zoomOut,
+        .up, .down, .left, .right, .ok,
+        .back, .menu,
     ]
 
     static let numberSemantics: [RemoteSemantic] = [
@@ -1626,6 +2462,30 @@ private enum RemoteSemantic: String, Identifiable {
             return ["auto", "automatic", "automatico"]
         case .freeze:
             return ["freeze", "still", "congelar"]
+        case .eject:
+            return ["eject", "open close", "open", "close", "expulsar"]
+        case .speedUp:
+            return [
+                "speed plus", "speed up", "fan speed plus", "fan speed up",
+                "velocidad plus", "subir velocidad",
+            ]
+        case .speedDown:
+            return [
+                "speed minus", "speed down", "fan speed minus", "fan speed down",
+                "velocidad menos", "bajar velocidad",
+            ]
+        case .light:
+            return ["light", "lamp", "led", "luz"]
+        case .shutter:
+            return ["shutter", "shoot", "capture", "photo", "foto", "disparar"]
+        case .zoomIn:
+            return ["zoom plus", "zoom in", "tele", "acercar"]
+        case .zoomOut:
+            return ["zoom minus", "zoom out", "wide", "alejar"]
+        case .guide:
+            return ["guide", "epg", "tv guide", "guia"]
+        case .info:
+            return ["info", "information", "display", "informacion"]
         }
     }
 
@@ -1784,6 +2644,60 @@ enum RemoteButtonIcon {
 
         if value.contains("temp") {
             return "thermometer.medium"
+        }
+
+        if value.contains("eject")
+            || value.contains("open close")
+        {
+            return "eject.fill"
+        }
+
+        if value.contains("zoom") {
+            if value.contains("+")
+                || value.contains("in")
+            {
+                return "plus.magnifyingglass"
+            }
+
+            if value.contains("-")
+                || value.contains("out")
+            {
+                return "minus.magnifyingglass"
+            }
+        }
+
+        if value.contains("shutter")
+            || value.contains("capture")
+            || value.contains("photo")
+            || value.contains("foto")
+        {
+            return "camera.fill"
+        }
+
+        if value.contains("light")
+            || value.contains("lamp")
+            || value == "led"
+            || value.contains("luz")
+        {
+            return "lightbulb.fill"
+        }
+
+        if value.contains("guide")
+            || value == "epg"
+        {
+            return "list.bullet.rectangle"
+        }
+
+        if value == "info"
+            || value.contains("information")
+        {
+            return "info.circle"
+        }
+
+        if value.contains("speed")
+            || value.contains("velocidad")
+        {
+            return "wind"
         }
 
         if value.contains("fan") {

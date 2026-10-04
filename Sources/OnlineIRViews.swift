@@ -129,11 +129,14 @@ struct OnlineIRLibraryView: View {
 
             DeviceCategoryPicker(
                 category: $category,
-                disabled: library.isSearching
+                disabled: library.isSearching,
+                categories: IRDeviceCategory.remoteCategories
             )
 
             TextField(
-                "Marca (ej. TD Systems)",
+                category == .setTopBox
+                ? "Marca / operador (ej. Movistar)"
+                : "Marca (ej. Samsung)",
                 text: $brand
             )
             .textFieldStyle(.plain)
@@ -598,7 +601,7 @@ struct OnlineIRLibraryView: View {
                         ) {
                             Image(
                                 systemName:
-                                    "remote.fill"
+                                    IRAppSymbols.remote
                             )
                             .font(.title2)
                             .foregroundStyle(.red)
@@ -881,11 +884,15 @@ private struct OnlineIRLoadedRemoteContent: View {
                 customRemotes.createImported(
                     name: loaded.name,
                     category: category,
-                    signals: loaded.signals
+                    signals: loaded.signals,
+                    brand: loaded.brand,
+                    model: loaded.model,
+                    sourceDescription: loaded.sourceDescription,
+                    sourcePath: loaded.sourcePath
                 )
                 message = "Mando guardado en «Mando → Mis equipos y mandos»."
             } label: {
-                Label("GUARDAR MANDO COMPLETO", systemImage: "remote.fill")
+                Label("GUARDAR MANDO COMPLETO", systemImage: IRAppSymbols.remote)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)

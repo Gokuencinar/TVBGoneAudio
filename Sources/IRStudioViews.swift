@@ -452,7 +452,7 @@ struct RemoteBuilderView: View {
                     } label: {
                         Label(
                             "Crear mando",
-                            systemImage: "remote.fill"
+                            systemImage: IRAppSymbols.remote
                         )
                     }
                     .disabled(selected.isEmpty)
