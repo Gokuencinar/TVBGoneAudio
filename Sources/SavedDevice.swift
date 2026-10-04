@@ -82,15 +82,6 @@ final class SavedDeviceStore: ObservableObject {
             ? category.defaultDeviceName
             : cleanName
 
-        let replacement =
-            SavedIRDevice(
-                name: finalName,
-                category: category,
-                code: code,
-                codeLabel: codeLabel,
-                embedCode: embedCode
-            )
-
         if
             let existingIndex =
                 devices.firstIndex(
@@ -102,10 +93,34 @@ final class SavedDeviceStore: ObservableObject {
                     }
                 )
         {
+            let existing = devices[
+                existingIndex
+            ]
+
+            let replacement =
+                SavedIRDevice(
+                    id: existing.id,
+                    name: finalName,
+                    category: category,
+                    code: code,
+                    codeLabel: codeLabel,
+                    createdAt:
+                        existing.createdAt,
+                    embedCode: embedCode
+                )
+
             devices[existingIndex] =
                 replacement
         } else {
-            devices.append(replacement)
+            devices.append(
+                SavedIRDevice(
+                    name: finalName,
+                    category: category,
+                    code: code,
+                    codeLabel: codeLabel,
+                    embedCode: embedCode
+                )
+            )
         }
 
         save()

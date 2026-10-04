@@ -1565,7 +1565,7 @@ private enum RemoteSemantic: String, Identifiable {
         case .menu:
             return ["menu", "settings", "options", "ajustes"]
         case .rewind:
-            return ["rewind", "rev", "backward", "media rewind"]
+            return ["rewind", "rev", "media rewind"]
         case .play:
             return ["play", "media play"]
         case .pause:
@@ -1678,14 +1678,31 @@ private enum RemoteSemantic: String, Identifiable {
 }
 
 enum RemoteButtonIcon {
+    static func isPowerName(
+        _ name: String
+    ) -> Bool {
+        let value = name
+            .folding(
+                options: [
+                    .diacriticInsensitive,
+                    .caseInsensitive,
+                ],
+                locale: .current
+            )
+            .lowercased()
+
+        return value.contains("power")
+            || value.contains("standby")
+            || value.contains("encend")
+            || value.contains("apag")
+    }
+
     static func systemImage(
         for name: String
     ) -> String {
         let value = name.lowercased()
 
-        if value.contains("power")
-            || value.contains("standby")
-        {
+        if isPowerName(name) {
             return "power"
         }
 

@@ -23,7 +23,7 @@ Historial de cambios de **TVBGoneAudio**.
 - Nuevo selector unificado para alternar entre:
   - mandos completos importados/aprendidos;
   - equipos con código POWER guardado.
-- Los mandos completos se organizan automáticamente por función, sin modificar ni perder las señales IR originales.
+- Los mandos completos organizan automáticamente por función todas las señales compatibles, sin alterar sus códigos IR.
 - Diseño específico para TV con:
   - POWER;
   - Input/Source;
@@ -39,7 +39,7 @@ Historial de cambios de **TVBGoneAudio**.
   - Mode, Fan, Swing;
   - Cool, Heat, Dry, Sleep, Timer y Auto cuando están disponibles.
 - Diseño específico para proyector con POWER, Source, Mute, D-pad, Menú, Atrás y Freeze.
-- Sección **Más controles** para conservar cualquier botón no reconocido automáticamente.
+- Sección **Más controles** para conservar cualquier botón compatible que no se reconozca automáticamente por nombre.
 - Añadido **POWER rápido** para usar los equipos guardados sin cambiar de mando completo.
 - El mando seleccionado se recuerda entre aperturas.
 - El mapeo reconoce variantes habituales de nombres en inglés/español y formatos Flipper (`VOL_UP`, `Channel -`, `Source`, `Return`, etc.).

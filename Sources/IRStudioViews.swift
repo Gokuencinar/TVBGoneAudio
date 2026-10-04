@@ -479,7 +479,21 @@ struct CustomRemoteView: View {
     @ObservedObject var transmitter:
         IRTransmitter
 
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
+
     @State private var showExporter = false
+
+    private var columns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible())]
+        }
+
+        return [
+            GridItem(.flexible()),
+            GridItem(.flexible()),
+        ]
+    }
 
     private var exportDocument: FlipperIRDocument {
         FlipperIRDocument(
@@ -490,14 +504,7 @@ struct CustomRemoteView: View {
     var body: some View {
         ScrollView {
             LazyVGrid(
-                columns: [
-                    GridItem(
-                        .flexible()
-                    ),
-                    GridItem(
-                        .flexible()
-                    ),
-                ],
+                columns: columns,
                 spacing: 12
             ) {
                 ForEach(remote.buttons) {
@@ -520,9 +527,11 @@ struct CustomRemoteView: View {
 
                             Text(button.name)
                                 .font(.headline)
-                                .lineLimit(2)
-                                .minimumScaleFactor(
-                                    0.75
+                                .lineLimit(
+                                    dynamicTypeSize
+                                        .isAccessibilitySize
+                                    ? nil
+                                    : 2
                                 )
                         }
                         .frame(
@@ -535,9 +544,10 @@ struct CustomRemoteView: View {
                         .borderedProminent
                     )
                     .tint(
-                        button.name
-                            .lowercased()
-                            .contains("power")
+                        RemoteButtonIcon
+                            .isPowerName(
+                                button.name
+                            )
                         ? .red
                         : .accentColor
                     )
