@@ -479,10 +479,8 @@ struct UniversalRemoteHubView: View {
                                 Image(systemName: "power")
                                     .font(.caption.bold())
                             }
-                            .frame(
-                                width: 104,
-                                minHeight: 88
-                            )
+                            .frame(width: 104)
+                            .frame(minHeight: 88)
                         }
                         .buttonStyle(.bordered)
                         .tint(
