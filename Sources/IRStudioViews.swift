@@ -511,9 +511,9 @@ struct CustomRemoteView: View {
                         VStack(spacing: 8) {
                             Image(
                                 systemName:
-                                    iconName(
-                                        for:
-                                            button.name
+                                    RemoteButtonIcon
+                                    .systemImage(
+                                        for: button.name
                                     )
                             )
                             .font(.title2)
@@ -572,57 +572,4 @@ struct CustomRemoteView: View {
         }.joined()
     }
 
-    private func iconName(
-        for name: String
-    ) -> String {
-        let n =
-            name.lowercased()
-
-        if n.contains("power")
-            || n.contains("encend")
-            || n.contains("apag")
-        {
-            return "power"
-        }
-
-        if n.contains("vol")
-            && (
-                n.contains("+")
-                || n.contains("up")
-            )
-        {
-            return "speaker.plus.fill"
-        }
-
-        if n.contains("vol")
-            && (
-                n.contains("-")
-                || n.contains("down")
-            )
-        {
-            return "speaker.minus.fill"
-        }
-
-        if n.contains("mute") {
-            return "speaker.slash.fill"
-        }
-
-        if n.contains("input")
-            || n.contains("source")
-        {
-            return "rectangle.on.rectangle"
-        }
-
-        if n.contains("menu") {
-            return "list.bullet"
-        }
-
-        if n.contains("ok")
-            || n.contains("enter")
-        {
-            return "checkmark.circle.fill"
-        }
-
-        return "dot.radiowaves.left.and.right"
-    }
 }

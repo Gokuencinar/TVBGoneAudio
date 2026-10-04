@@ -60,14 +60,16 @@ struct ContentView: View {
                 Label("Códigos", systemImage: "dial.medium.fill")
             }
 
-            SavedDevicesView(
+            UniversalRemoteHubView(
                 transmitter: transmitter,
                 savedDevices: savedDevices,
+                learnedSignals: learnedSignals,
                 customRemotes: customRemotes,
-                history: workedHistory
+                history: workedHistory,
+                category: $category
             )
             .tabItem {
-                Label("Mis equipos", systemImage: "star.fill")
+                Label("Mando", systemImage: "remote.fill")
             }
 
             LearnIRView(
@@ -82,7 +84,7 @@ struct ContentView: View {
                 Label("Aprender", systemImage: "mic.fill")
             }
 
-            DiagnosticsView(
+            SettingsInfoView(
                 transmitter: transmitter,
                 learner: learner,
                 updater: updater,
@@ -92,7 +94,7 @@ struct ContentView: View {
                 history: workedHistory
             )
             .tabItem {
-                Label("Diagnóstico", systemImage: "waveform.path.ecg")
+                Label("Ajustes/Info", systemImage: "gearshape.fill")
             }
         }
         .tint(
@@ -1919,7 +1921,7 @@ private struct ManualCodeView: View {
     }
 }
 
-private struct SavedDevicesView: View {
+struct SavedDevicesView: View {
     @ObservedObject var transmitter: IRTransmitter
     @ObservedObject var savedDevices: SavedDeviceStore
     @ObservedObject var customRemotes: CustomRemoteStore
@@ -2079,7 +2081,7 @@ private struct SavedDevicesView: View {
     }
 }
 
-private struct DiagnosticsView: View {
+private struct SettingsInfoView: View {
     @ObservedObject var transmitter: IRTransmitter
     @ObservedObject var learner: IRLearner
     @ObservedObject var updater: AppUpdater
@@ -2317,7 +2319,7 @@ private struct DiagnosticsView: View {
                 .padding()
             }
             .irOLEDScreen()
-            .navigationTitle("Diagnóstico")
+            .navigationTitle("Ajustes/Info")
             .navigationBarTitleDisplayMode(.inline)
         }
     }

@@ -8,6 +8,46 @@ Historial de cambios de **TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
+## 5.9 — 2026-10-04
+
+### Novedades y cambios
+
+- Nueva pestaña **Mando**, inspirada en la experiencia de Mi Remote / Uni TV Remote.
+- Se mantienen cinco pestañas principales para evitar que iOS convierta la sexta en «Más»:
+  - Control;
+  - Códigos;
+  - Mando;
+  - Aprender;
+  - Ajustes/Info.
+- La antigua pestaña **Mis equipos** queda integrada dentro de Mando como biblioteca de equipos, mandos e historial.
+- Nuevo selector unificado para alternar entre:
+  - mandos completos importados/aprendidos;
+  - equipos con código POWER guardado.
+- Los mandos completos se organizan automáticamente por función, sin modificar ni perder las señales IR originales.
+- Diseño específico para TV con:
+  - POWER;
+  - Input/Source;
+  - Mute;
+  - volumen y canales;
+  - D-pad con OK;
+  - Atrás, Inicio y Menú;
+  - reproducción multimedia;
+  - teclado numérico cuando el mando lo incluye.
+- Diseño específico para aire acondicionado con:
+  - POWER;
+  - temperatura + / −;
+  - Mode, Fan, Swing;
+  - Cool, Heat, Dry, Sleep, Timer y Auto cuando están disponibles.
+- Diseño específico para proyector con POWER, Source, Mute, D-pad, Menú, Atrás y Freeze.
+- Sección **Más controles** para conservar cualquier botón no reconocido automáticamente.
+- Añadido **POWER rápido** para usar los equipos guardados sin cambiar de mando completo.
+- El mando seleccionado se recuerda entre aperturas.
+- El mapeo reconoce variantes habituales de nombres en inglés/español y formatos Flipper (`VOL_UP`, `Channel -`, `Source`, `Return`, etc.).
+- Se evita confundir señales específicas como `Power On`, `Power Off`, `Input HDMI1` o `Backward` con controles genéricos; permanecen accesibles en Más controles si no representan un toggle genérico.
+- La distribución TV se adapta al ancho disponible mediante una variante compacta para iPhone.
+- La pestaña **Diagnóstico** pasa a llamarse **Ajustes/Info**; mantiene diagnóstico técnico, apariencia, backups y actualizaciones.
+- Se mantiene intacto el motor físico de generación/transmisión IR.
+
 ## 5.8 — 2026-10-04
 
 ### Novedades y cambios

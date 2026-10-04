@@ -883,7 +883,7 @@ private struct OnlineIRLoadedRemoteContent: View {
                     category: category,
                     signals: loaded.signals
                 )
-                message = "Mando guardado en «Mis equipos»."
+                message = "Mando guardado en «Mando → Mis equipos y mandos»."
             } label: {
                 Label("GUARDAR MANDO COMPLETO", systemImage: "remote.fill")
                     .frame(maxWidth: .infinity)
