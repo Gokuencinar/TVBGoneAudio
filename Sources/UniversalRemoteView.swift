@@ -2,9 +2,8 @@ import Foundation
 import SwiftUI
 
 struct UniversalRemoteHubView: View {
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
     @ObservedObject var savedDevices: SavedDeviceStore
-    @ObservedObject var learnedSignals: LearnedIRStore
     @ObservedObject var customRemotes: CustomRemoteStore
     @ObservedObject var history: WorkedCodeHistoryStore
 
@@ -108,29 +107,19 @@ struct UniversalRemoteHubView: View {
                 knownRemoteCount = customRemotes.remotes.count
                 normalizeSelection()
             }
-            .onChange(of: customRemotes.remotes) { newRemotes in
+            .onChange(of: customRemotes.remotes.count) { newCount in
                 if
-                    newRemotes.count > knownRemoteCount,
-                    let newest = newRemotes.last
+                    newCount > knownRemoteCount,
+                    let newest = customRemotes.remotes.last
                 {
                     selectedTargetKey = targetKey(for: newest)
                     category = newest.category
                 }
-                knownRemoteCount = newRemotes.count
+                knownRemoteCount = newCount
                 normalizeSelection()
             }
-            .onChange(of: savedDevices.devices) { _ in
+            .onChange(of: savedDevices.devices.count) { _ in
                 normalizeSelection()
-            }
-            .onChange(of: transmitter.transmissionPulse) { _ in
-                guard
-                    transmitter.currentCodeID?.hasPrefix("remote:") == true,
-                    let remote = remoteForCurrentTransmission()
-                else {
-                    return
-                }
-
-                customRemotes.recordUse(remote)
             }
             .sheet(isPresented: $showLibrary) {
                 SavedDevicesView(
@@ -143,7 +132,6 @@ struct UniversalRemoteHubView: View {
             .sheet(isPresented: $showAddRemote) {
                 RemoteAddDeviceSheet(
                     transmitter: transmitter,
-                    learnedSignals: learnedSignals,
                     customRemotes: customRemotes
                 )
             }
@@ -672,6 +660,21 @@ struct UniversalRemoteHubView: View {
         selectedTargetKey = key
         self.category = category
 
+        if
+            key.hasPrefix("remote:"),
+            let id = UUID(
+                uuidString:
+                    String(
+                        key.dropFirst("remote:".count)
+                    )
+            ),
+            let remote = customRemotes.remotes.first(
+                where: { $0.id == id }
+            )
+        {
+            customRemotes.recordUse(remote)
+        }
+
         IRHaptics.tap()
     }
 
@@ -684,22 +687,6 @@ struct UniversalRemoteHubView: View {
             let lhsDate = lhs.lastUsedAt ?? lhs.createdAt
             let rhsDate = rhs.lastUsedAt ?? rhs.createdAt
             return lhsDate > rhsDate
-        }
-    }
-
-    private func remoteForCurrentTransmission() -> CustomRemote? {
-        guard
-            let codeID = transmitter.currentCodeID,
-            codeID.hasPrefix("remote:"),
-            let buttonID = UUID(
-                uuidString: String(codeID.dropFirst("remote:".count))
-            )
-        else {
-            return nil
-        }
-
-        return customRemotes.remotes.first { remote in
-            remote.buttons.contains { $0.id == buttonID }
         }
     }
 
@@ -753,8 +740,7 @@ struct UniversalRemoteHubView: View {
 }
 
 private struct RemoteAddDeviceSheet: View {
-    @ObservedObject var transmitter: IRTransmitter
-    @ObservedObject var learnedSignals: LearnedIRStore
+    let transmitter: IRTransmitter
     @ObservedObject var customRemotes: CustomRemoteStore
 
     @Environment(\.dismiss)
@@ -784,10 +770,9 @@ private struct RemoteAddDeviceSheet: View {
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(IRDeviceCategory.remoteCategories) { item in
                             NavigationLink {
-                                RemoteCategoryBrowser(
-                                    initialCategory: item,
+                                RemoteBrandPickerView(
+                                    category: item,
                                     transmitter: transmitter,
-                                    learnedSignals: learnedSignals,
                                     customRemotes: customRemotes
                                 )
                             } label: {
@@ -844,13 +829,13 @@ private struct RemoteAddDeviceSheet: View {
                     initialRemoteCount = customRemotes.remotes.count
                 }
             }
-            .onChange(of: customRemotes.remotes) { remotes in
+            .onChange(of: customRemotes.remotes.count) { remoteCount in
                 guard initialRemoteCount >= 0 else {
-                    initialRemoteCount = remotes.count
+                    initialRemoteCount = remoteCount
                     return
                 }
 
-                if remotes.count > initialRemoteCount {
+                if remoteCount > initialRemoteCount {
                     dismiss()
                 }
             }
@@ -865,38 +850,11 @@ private struct RemoteAddDeviceSheet: View {
     }
 }
 
-private struct RemoteCategoryBrowser: View {
-    @ObservedObject var transmitter: IRTransmitter
-    @ObservedObject var learnedSignals: LearnedIRStore
-    @ObservedObject var customRemotes: CustomRemoteStore
-
-    @State private var category: IRDeviceCategory
-
-    init(
-        initialCategory: IRDeviceCategory,
-        transmitter: IRTransmitter,
-        learnedSignals: LearnedIRStore,
-        customRemotes: CustomRemoteStore
-    ) {
-        _category = State(initialValue: initialCategory)
-        self.transmitter = transmitter
-        self.learnedSignals = learnedSignals
-        self.customRemotes = customRemotes
-    }
-
-    var body: some View {
-        OnlineIRLibraryView(
-            transmitter: transmitter,
-            learnedSignals: learnedSignals,
-            customRemotes: customRemotes,
-            category: $category
-        )
-    }
-}
-
 private struct UniversalRemoteSurface: View {
     let remote: CustomRemote
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
+
+    private let matcher: RemoteButtonMatcher
 
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
@@ -911,8 +869,15 @@ private struct UniversalRemoteSurface: View {
         ]
     }
 
-    private var matcher: RemoteButtonMatcher {
-        RemoteButtonMatcher(buttons: remote.buttons)
+    init(
+        remote: CustomRemote,
+        transmitter: IRTransmitter
+    ) {
+        self.remote = remote
+        self.transmitter = transmitter
+        matcher = RemoteButtonMatcher(
+            buttons: remote.buttons
+        )
     }
 
     private var usedButtonIDs: Set<UUID> {
@@ -1932,7 +1897,7 @@ private struct RemoteFunctionButton: View {
     let title: String
     let systemImage: String
     let button: CustomRemoteButton?
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
 
     var body: some View {
         Button {
@@ -1971,7 +1936,7 @@ private struct RemoteVerticalRocker: View {
     let title: String
     let up: CustomRemoteButton?
     let down: CustomRemoteButton?
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
     let upLabel: String
     let downLabel: String
 
@@ -2015,7 +1980,7 @@ private struct RemoteTemperatureButton: View {
     let title: String
     let systemImage: String
     let button: CustomRemoteButton?
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
 
     var body: some View {
         Button {
@@ -2044,7 +2009,7 @@ private struct RemoteTemperatureButton: View {
 
 private struct RemoteDPad: View {
     let matcher: RemoteButtonMatcher
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
 
     var body: some View {
         Grid(
@@ -2152,7 +2117,16 @@ private struct RemoteDPad: View {
 }
 
 private struct RemoteButtonMatcher {
-    let buttons: [CustomRemoteButton]
+    private let candidates: [(button: CustomRemoteButton, normalized: String)]
+
+    init(buttons: [CustomRemoteButton]) {
+        candidates = buttons.map {
+            (
+                button: $0,
+                normalized: Self.normalize($0.name)
+            )
+        }
+    }
 
     func primaryPowerButton() -> CustomRemoteButton? {
         if let toggle = button(for: .power) {
@@ -2164,40 +2138,36 @@ private struct RemoteButtonMatcher {
             "encender solo", "apagar solo",
         ]
 
-        return buttons.first {
-            fallbackAliases.contains(normalize($0.name))
-        }
+        return candidates.first {
+            fallbackAliases.contains($0.normalized)
+        }?.button
     }
 
     func button(
         for semantic: RemoteSemantic
     ) -> CustomRemoteButton? {
-        let candidates = buttons.map {
-            ($0, normalize($0.name))
-        }
-
         if let exact = candidates.first(
             where: {
-                semantic.exactAliases.contains($0.1)
+                semantic.exactAliases.contains($0.normalized)
             }
         ) {
-            return exact.0
+            return exact.button
         }
 
         if let partial = candidates.first(
             where: { candidate in
                 semantic.containsAliases.contains {
-                    candidate.1.contains($0)
+                    candidate.normalized.contains($0)
                 }
             }
         ) {
-            return partial.0
+            return partial.button
         }
 
         return nil
     }
 
-    private func normalize(
+    private static func normalize(
         _ value: String
     ) -> String {
         var normalized = value
@@ -2389,17 +2359,17 @@ private enum RemoteSemantic: String, Identifiable {
         case .volumeDown:
             return [
                 "vol minus", "volume minus", "volume down",
-                "vol down", "bajar volumen", "vdown",
+                "vol down", "vol dn", "bajar volumen", "vdown",
             ]
         case .channelUp:
             return [
                 "ch plus", "channel plus", "channel up", "ch up",
-                "program plus", "prog plus", "canal plus",
+                "ch next", "program plus", "prog plus", "canal plus",
             ]
         case .channelDown:
             return [
                 "ch minus", "channel minus", "channel down",
-                "ch down", "program minus", "prog minus", "canal menos",
+                "ch down", "ch prev", "program minus", "prog minus", "canal menos",
             ]
         case .up:
             return ["up", "arrow up", "cursor up", "arriba"]
@@ -2517,11 +2487,11 @@ private enum RemoteSemantic: String, Identifiable {
         case .volumeUp:
             return ["volume up", "vol up", "vol plus", "volume plus"]
         case .volumeDown:
-            return ["volume down", "vol down", "vol minus", "volume minus"]
+            return ["volume down", "vol down", "vol dn", "vol minus", "volume minus"]
         case .channelUp:
-            return ["channel up", "ch up", "ch plus", "channel plus"]
+            return ["channel up", "ch up", "ch next", "ch plus", "channel plus"]
         case .channelDown:
-            return ["channel down", "ch down", "ch minus", "channel minus"]
+            return ["channel down", "ch down", "ch prev", "ch minus", "channel minus"]
         case .home:
             return []
         case .menu:

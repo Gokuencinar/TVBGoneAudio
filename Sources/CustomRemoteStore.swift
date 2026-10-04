@@ -126,6 +126,14 @@ final class CustomRemoteStore: ObservableObject {
     private let defaultsKey =
         "customIRRemotes.v1"
 
+    private let usageDefaultsKey =
+        "customIRRemoteUsage.v1"
+
+    private struct UsageMetadata: Codable {
+        var lastUsedAt: Date
+        var useCount: Int
+    }
+
     init() {
         load()
     }
@@ -258,7 +266,7 @@ final class CustomRemoteStore: ObservableObject {
 
         remotes[index].lastUsedAt = Date()
         remotes[index].useCount += 1
-        save()
+        saveUsageMetadata()
     }
 
     func add(
@@ -337,6 +345,7 @@ final class CustomRemoteStore: ObservableObject {
         }
 
         remotes = decoded
+        applyUsageMetadata()
     }
 
     private func save() {
@@ -352,6 +361,62 @@ final class CustomRemoteStore: ObservableObject {
         UserDefaults.standard.set(
             data,
             forKey: defaultsKey
+        )
+
+        saveUsageMetadata()
+    }
+
+    private func applyUsageMetadata() {
+        guard
+            let data = UserDefaults.standard.data(
+                forKey: usageDefaultsKey
+            ),
+            let metadata = try? JSONDecoder().decode(
+                [String: UsageMetadata].self,
+                from: data
+            )
+        else {
+            return
+        }
+
+        for index in remotes.indices {
+            guard
+                let usage = metadata[
+                    remotes[index].id.uuidString
+                ]
+            else {
+                continue
+            }
+
+            remotes[index].lastUsedAt = usage.lastUsedAt
+            remotes[index].useCount = usage.useCount
+        }
+    }
+
+    private func saveUsageMetadata() {
+        var metadata: [String: UsageMetadata] = [:]
+
+        for remote in remotes {
+            guard let lastUsedAt = remote.lastUsedAt else {
+                continue
+            }
+
+            metadata[remote.id.uuidString] =
+                UsageMetadata(
+                    lastUsedAt: lastUsedAt,
+                    useCount: remote.useCount
+                )
+        }
+
+        guard
+            let data = try? JSONEncoder().encode(metadata)
+        else {
+            return
+        }
+
+        UserDefaults.standard.set(
+            data,
+            forKey: usageDefaultsKey
         )
     }
 }

@@ -101,6 +101,8 @@ final class OnlineIRLibrary: ObservableObject {
     @Published private(set) var brandStatus = "Cargando índice de marcas…"
 
     private var memoryCache: [String: Data] = [:]
+    private var githubPathCache: [String: [String]] = [:]
+    private var legacyPathCache: [String]?
     private var brandRequestID = UUID()
     private var searchRequestID = UUID()
     private let maximumCacheBytes = 24_000_000
@@ -347,35 +349,16 @@ final class OnlineIRLibrary: ObservableObject {
         source: OnlineIRSource,
         category: IRDeviceCategory
     ) async throws -> [String] {
-        let data =
-            try await cached(
-                url,
-                maxBytes: 20_000_000
-            )
+        let paths = try await githubBlobPaths(
+            url: url
+        )
 
-        let tree =
-            try JSONDecoder().decode(
-                GitHubIRTree.self,
-                from: data
-            )
-
-        guard !tree.truncated else {
-            throw error(
-                "El índice de GitHub llegó incompleto."
-            )
-        }
-
-        return tree.tree.compactMap {
-            entry in
-
+        return paths.compactMap { path in
             guard
-                entry.type == "blob",
-                entry.path
-                    .lowercased()
-                    .hasSuffix(".ir"),
-                !entry.path.hasPrefix("_Converted_/"),
+                path.lowercased().hasSuffix(".ir"),
+                !path.hasPrefix("_Converted_/"),
                 categoryMatches(
-                    entry.path,
+                    path,
                     category: category,
                     source: source
                 )
@@ -384,7 +367,7 @@ final class OnlineIRLibrary: ObservableObject {
             }
 
             let pieces =
-                entry.path
+                path
                     .split(separator: "/")
                     .map(String.init)
 
@@ -403,42 +386,9 @@ final class OnlineIRLibrary: ObservableObject {
     private func brandsFromLegacy(
         category: IRDeviceCategory
     ) async throws -> [String] {
-        let indexURL =
-            "https://cdn.jsdelivr.net/gh/probonopd/irdb@master/codes/index"
+        let paths = try await legacyIndexPaths()
 
-        let data =
-            try await cached(
-                indexURL,
-                maxBytes: 8_000_000
-            )
-
-        guard
-            let text =
-                String(
-                    data: data,
-                    encoding: .utf8
-                )
-        else {
-            return []
-        }
-
-        return text
-            .components(
-                separatedBy: .newlines
-            )
-            .compactMap { line in
-                let path =
-                    line.trimmingCharacters(
-                        in:
-                            .whitespacesAndNewlines
-                    )
-
-                guard
-                    path.lowercased()
-                        .hasSuffix(".csv")
-                else {
-                    return nil
-                }
+        return paths.compactMap { path in
 
                 let parts =
                     path
@@ -476,21 +426,20 @@ final class OnlineIRLibrary: ObservableObject {
         category: IRDeviceCategory,
         deep: Bool
     ) async throws -> [OnlineIRRemote] {
-        let data = try await cached(url, maxBytes: 20_000_000)
-        let tree = try JSONDecoder().decode(GitHubIRTree.self, from: data)
-        guard !tree.truncated else { throw error("El índice de GitHub llegó incompleto.") }
+        let paths = try await githubBlobPaths(
+            url: url
+        )
 
-        return tree.tree.compactMap { entry in
+        return paths.compactMap { path in
             guard
-                entry.type == "blob",
-                entry.path.lowercased().hasSuffix(".ir"),
-                !entry.path.hasPrefix("_Converted_/")
+                path.lowercased().hasSuffix(".ir"),
+                !path.hasPrefix("_Converted_/")
             else {
                 return nil
             }
-            guard categoryMatches(entry.path, category: category, source: source) else { return nil }
+            guard categoryMatches(path, category: category, source: source) else { return nil }
 
-            let pieces = entry.path.split(separator: "/").map(String.init)
+            let pieces = path.split(separator: "/").map(String.init)
             let file = pieces.last.map { String($0.dropLast(3)) } ?? "Mando"
             let guessedBrand = guessBrand(pieces: pieces, source: source)
             let score = matchScore(
@@ -498,18 +447,18 @@ final class OnlineIRLibrary: ObservableObject {
                 model: model,
                 candidateBrand: guessedBrand,
                 candidateModel: file,
-                full: entry.path,
+                full: path,
                 deep: deep
             )
             guard score > 0 else { return nil }
 
-            let encoded = entry.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? entry.path
+            let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
             guard let downloadURL = URL(string: rawPrefix + encoded) else { return nil }
 
             return OnlineIRRemote(
-                id: "\(source.rawValue):\(entry.path)",
+                id: "\(source.rawValue):\(path)",
                 source: source,
-                path: entry.path,
+                path: path,
                 brand: guessedBrand.isEmpty ? "Desconocida" : guessedBrand,
                 model: file.replacingOccurrences(of: "_", with: " "),
                 categoryLabel: category.shortTitle,
@@ -525,13 +474,9 @@ final class OnlineIRLibrary: ObservableObject {
         category: IRDeviceCategory,
         deep: Bool
     ) async throws -> [OnlineIRRemote] {
-        let indexURL = "https://cdn.jsdelivr.net/gh/probonopd/irdb@master/codes/index"
-        let data = try await cached(indexURL, maxBytes: 8_000_000)
-        guard let text = String(data: data, encoding: .utf8) else { return [] }
+        let paths = try await legacyIndexPaths()
 
-        return text.components(separatedBy: .newlines).compactMap { line in
-            let path = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard path.lowercased().hasSuffix(".csv") else { return nil }
+        return paths.compactMap { path in
             let parts = path.split(separator: "/").map(String.init)
             guard parts.count >= 3 else { return nil }
 
@@ -545,7 +490,12 @@ final class OnlineIRLibrary: ObservableObject {
                 ? candidateModel
                 : "\(candidateModel) · \(profile)"
             let full = "\(candidateBrand) \(candidateModel) \(path)"
-            if !legacyCategoryMatches(candidateModel, category: category) && !deep { return nil }
+            guard legacyCategoryMatches(
+                candidateModel,
+                category: category
+            ) else {
+                return nil
+            }
 
             let score = matchScore(
                 brand: brand,
@@ -571,6 +521,89 @@ final class OnlineIRLibrary: ObservableObject {
                 score: score
             )
         }
+    }
+
+    private func githubBlobPaths(
+        url: String
+    ) async throws -> [String] {
+        if let cachedPaths = githubPathCache[url] {
+            return cachedPaths
+        }
+
+        let data = try await cached(
+            url,
+            maxBytes: 20_000_000
+        )
+
+        let decoded = try await Task.detached(
+            priority: .userInitiated
+        ) {
+            let tree = try JSONDecoder().decode(
+                GitHubIRTree.self,
+                from: data
+            )
+
+            let paths = tree.tree.compactMap { entry in
+                entry.type == "blob"
+                    ? entry.path
+                    : nil
+            }
+
+            return (
+                paths: paths,
+                truncated: tree.truncated
+            )
+        }.value
+
+        guard !decoded.truncated else {
+            throw error(
+                "El índice de GitHub llegó incompleto."
+            )
+        }
+
+        githubPathCache[url] = decoded.paths
+        memoryCache.removeValue(forKey: url)
+        return decoded.paths
+    }
+
+    private func legacyIndexPaths() async throws -> [String] {
+        if let legacyPathCache {
+            return legacyPathCache
+        }
+
+        let indexURL =
+            "https://cdn.jsdelivr.net/gh/probonopd/irdb@master/codes/index"
+
+        let data = try await cached(
+            indexURL,
+            maxBytes: 8_000_000
+        )
+
+        let paths = await Task.detached(
+            priority: .userInitiated
+        ) {
+            guard let text = String(
+                data: data,
+                encoding: .utf8
+            ) else {
+                return [String]()
+            }
+
+            return text
+                .components(separatedBy: .newlines)
+                .map {
+                    $0.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    )
+                }
+                .filter {
+                    $0.lowercased().hasSuffix(".csv")
+                }
+        }.value
+
+        legacyPathCache = paths
+        memoryCache.removeValue(forKey: indexURL)
+        return paths
     }
 
     private func guessBrand(pieces: [String], source: OnlineIRSource) -> String {
@@ -753,7 +786,7 @@ final class OnlineIRLibrary: ObservableObject {
     private func fetch(_ url: URL, maxBytes: Int) async throws -> Data {
         var request = URLRequest(url: url)
         request.timeoutInterval = 20
-        request.setValue("IR-Universal/6.0 iOS", forHTTPHeaderField: "User-Agent")
+        request.setValue("IR-Universal/6.1 iOS", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw error(http.statusCode == 403 || http.statusCode == 429

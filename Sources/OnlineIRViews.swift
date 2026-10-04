@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct OnlineIRLibraryView: View {
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
     @ObservedObject var learnedSignals: LearnedIRStore
     @ObservedObject var customRemotes: CustomRemoteStore
     @Binding var category: IRDeviceCategory
@@ -580,9 +580,10 @@ struct OnlineIRLibraryView: View {
             {
                 OnlineIREmptyView()
             } else {
-                ForEach(
-                    library.results
-                ) { remote in
+                LazyVStack(spacing: 10) {
+                    ForEach(
+                        library.results
+                    ) { remote in
                     NavigationLink {
                         OnlineIRRemoteDetailView(
                             remote: remote,
@@ -648,9 +649,10 @@ struct OnlineIRLibraryView: View {
                         .padding()
                     }
                     .buttonStyle(.plain)
-                    .irCard(
-                        cornerRadius: 16
-                    )
+                        .irCard(
+                            cornerRadius: 16
+                        )
+                    }
                 }
             }
         }
@@ -730,7 +732,7 @@ struct OnlineIRLibraryView: View {
 private struct OnlineIRRemoteDetailView: View {
     let remote: OnlineIRRemote
     @ObservedObject var library: OnlineIRLibrary
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
     @ObservedObject var learnedSignals: LearnedIRStore
     @ObservedObject var customRemotes: CustomRemoteStore
     let category: IRDeviceCategory
@@ -808,7 +810,7 @@ private struct OnlineIRRemoteDetailView: View {
 
 private struct OnlineIRLoadedRemoteView: View {
     let loaded: OnlineIRLoadedRemote
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
     @ObservedObject var learnedSignals: LearnedIRStore
     @ObservedObject var customRemotes: CustomRemoteStore
     let category: IRDeviceCategory
@@ -837,7 +839,7 @@ private struct OnlineIRLoadedRemoteView: View {
 
 private struct OnlineIRLoadedRemoteContent: View {
     let loaded: OnlineIRLoadedRemote
-    @ObservedObject var transmitter: IRTransmitter
+    let transmitter: IRTransmitter
     @ObservedObject var learnedSignals: LearnedIRStore
     @ObservedObject var customRemotes: CustomRemoteStore
     let category: IRDeviceCategory
@@ -845,11 +847,17 @@ private struct OnlineIRLoadedRemoteContent: View {
     @State private var message: String?
 
     private var powerSignals: [ImportedIRSignal] {
-        let p = loaded.signals.filter {
-            let n = $0.name.lowercased()
-            return n.contains("power") || n.contains("on/off") || n == "off"
+        let aliases: Set<String> = [
+            "power", "power toggle", "power on off", "pwr",
+            "on off", "standby", "power on", "power off",
+            "on", "off", "encender", "apagar",
+        ]
+
+        return loaded.signals.filter {
+            aliases.contains(
+                normalizedSignalName($0.name)
+            )
         }
-        return p.isEmpty ? Array(loaded.signals.prefix(3)) : p
     }
 
     var body: some View {
@@ -908,47 +916,68 @@ private struct OnlineIRLoadedRemoteContent: View {
             Text("Todos los botones")
                 .font(.headline)
 
-            ForEach(loaded.signals) { signal in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(signal.name)
-                            .font(.subheadline.bold())
-                        Text("\(signal.code.carrierHz / 1000) kHz · \(signal.sourceDescription)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+            LazyVStack(spacing: 10) {
+                ForEach(loaded.signals) { signal in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(signal.name)
+                                .font(.subheadline.bold())
+                            Text("\(signal.code.carrierHz / 1000) kHz · \(signal.sourceDescription)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
 
-                    Spacer()
+                        Spacer()
 
-                    Button {
-                        transmitter.send(code: signal.code)
-                    } label: {
-                        Image(systemName: "wave.3.right")
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel(
-                        "Probar \(signal.name)"
-                    )
-
-                    Button {
-                        learnedSignals.addImported(
-                            name: signal.name,
-                            category: category,
-                            code: signal.code
+                        Button {
+                            transmitter.send(code: signal.code)
+                        } label: {
+                            Image(systemName: "wave.3.right")
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel(
+                            "Probar \(signal.name)"
                         )
-                        message = "«\(signal.name)» guardado en la biblioteca local."
-                    } label: {
-                        Image(systemName: "square.and.arrow.down")
+
+                        Button {
+                            learnedSignals.addImported(
+                                name: signal.name,
+                                category: category,
+                                code: signal.code
+                            )
+                            message = "«\(signal.name)» guardado en la biblioteca local."
+                        } label: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel(
+                            "Guardar \(signal.name)"
+                        )
                     }
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel(
-                        "Guardar \(signal.name)"
-                    )
+                    .padding(.vertical, 3)
                 }
-                .padding(.vertical, 3)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func normalizedSignalName(
+        _ value: String
+    ) -> String {
+        value
+            .folding(
+                options: [
+                    .diacriticInsensitive,
+                    .caseInsensitive,
+                ],
+                locale: .current
+            )
+            .lowercased()
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "/", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
     }
 }
 

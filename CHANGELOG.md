@@ -8,6 +8,34 @@ Historial de cambios de **TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
+## 6.1 — 2026-10-04
+
+### Asistente Mi Remote y rendimiento
+
+- Rehecho el alta de mandos para seguir un flujo tipo Mi Remote:
+  - elegir tipo de dispositivo;
+  - abrir una lista dedicada de marcas con búsqueda;
+  - seleccionar la marca;
+  - probar encendido/apagado;
+  - responder **Sí funciona** / **No funciona**;
+  - si falla, probar otro código POWER del mismo perfil y después el siguiente perfil;
+  - si funciona, validar otras funciones representativas del aparato;
+  - guardar automáticamente el mando completo al terminar.
+- Las pruebas secundarias cambian según el dispositivo: volumen/entrada en TV y audio, temperatura/modo en aire, canal/OK en decodificadores, velocidad/oscilación en ventiladores, Play/Eject en DVD, etc.
+- Cámara empieza por disparador/zoom cuando el perfil no tiene un concepto de POWER útil.
+- La búsqueda profunda ya no puede mezclar perfiles de otras categorías.
+- Eliminado el fallback antiguo que podía tratar los primeros botones de un archivo como si fueran POWER.
+- Mejor reconocimiento de nombres Flipper habituales como `Ch_next`, `Ch_prev` y `Vol_dn`.
+- Importante mejora de fluidez en **Mando**:
+  - los controles que solo transmiten ya no observan todos los cambios internos de `IRTransmitter`;
+  - se evita redibujar toda la superficie varias veces por cada pulsación;
+  - el matcher de nombres se precalcula una sola vez por mando;
+  - la recencia deja de reserializar todas las señales IR al pulsar cada botón;
+  - los cambios de biblioteca observan conteos en lugar de comparar arrays completos de waveforms;
+  - los listados online largos usan carga lazy;
+  - los grandes índices GitHub se decodifican fuera del hilo principal y se cachean ya procesados.
+- El motor físico `IRTransmitter` y la generación L/R en antifase permanecen sin cambios.
+
 ## 6.0 — 2026-10-04
 
 ### Mando tipo Mi Remote

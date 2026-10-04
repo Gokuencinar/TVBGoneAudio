@@ -63,7 +63,6 @@ struct ContentView: View {
             UniversalRemoteHubView(
                 transmitter: transmitter,
                 savedDevices: savedDevices,
-                learnedSignals: learnedSignals,
                 customRemotes: customRemotes,
                 history: workedHistory,
                 category: $category
