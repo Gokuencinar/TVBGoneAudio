@@ -41,6 +41,7 @@ struct CustomRemote: Identifiable, Codable, Equatable {
     var isFavorite: Bool
     var lastUsedAt: Date?
     var useCount: Int
+    var showAllControls: Bool
 
     init(
         id: UUID = UUID(),
@@ -54,7 +55,8 @@ struct CustomRemote: Identifiable, Codable, Equatable {
         sourcePath: String? = nil,
         isFavorite: Bool = false,
         lastUsedAt: Date? = nil,
-        useCount: Int = 0
+        useCount: Int = 0,
+        showAllControls: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -68,6 +70,7 @@ struct CustomRemote: Identifiable, Codable, Equatable {
         self.isFavorite = isFavorite
         self.lastUsedAt = lastUsedAt
         self.useCount = useCount
+        self.showAllControls = showAllControls
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -83,6 +86,7 @@ struct CustomRemote: Identifiable, Codable, Equatable {
         case isFavorite
         case lastUsedAt
         case useCount
+        case showAllControls
     }
 
     init(from decoder: Decoder) throws {
@@ -99,6 +103,7 @@ struct CustomRemote: Identifiable, Codable, Equatable {
         isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
         useCount = try container.decodeIfPresent(Int.self, forKey: .useCount) ?? 0
+        showAllControls = try container.decodeIfPresent(Bool.self, forKey: .showAllControls) ?? false
     }
 
     func encode(to encoder: Encoder) throws {
@@ -115,6 +120,7 @@ struct CustomRemote: Identifiable, Codable, Equatable {
         try container.encode(isFavorite, forKey: .isFavorite)
         try container.encodeIfPresent(lastUsedAt, forKey: .lastUsedAt)
         try container.encode(useCount, forKey: .useCount)
+        try container.encode(showAllControls, forKey: .showAllControls)
     }
 }
 
@@ -249,6 +255,18 @@ final class CustomRemoteStore: ObservableObject {
         }
 
         remotes[index].isFavorite.toggle()
+        save()
+        IRHaptics.tap()
+    }
+
+    func toggleAllControls(
+        _ remote: CustomRemote
+    ) {
+        guard let index = remotes.firstIndex(where: { $0.id == remote.id }) else {
+            return
+        }
+
+        remotes[index].showAllControls.toggle()
         save()
         IRHaptics.tap()
     }

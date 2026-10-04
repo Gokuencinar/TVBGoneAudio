@@ -246,6 +246,25 @@ struct UniversalRemoteHubView: View {
                             : .primary
                         )
                         .accessibilityLabel("Usar mando \(remote.name)")
+                        .contextMenu {
+                            Button {
+                                customRemotes.toggleAllControls(remote)
+                            } label: {
+                                Label(
+                                    remote.showAllControls ? "Usar controles organizados" : "Mostrar todos los controles",
+                                    systemImage: remote.showAllControls ? "square.grid.3x3" : "square.grid.3x3.fill"
+                                )
+                            }
+
+                            Button(role: .destructive) {
+                                if activeTargetKey == targetKey(for: remote) {
+                                    selectedTargetKey = ""
+                                }
+                                customRemotes.remove(remote)
+                            } label: {
+                                Label("Eliminar mando", systemImage: "trash")
+                            }
+                        }
                     }
 
                     Button {
@@ -939,7 +958,9 @@ private struct UniversalRemoteSurface: View {
                 cameraControls
             }
 
-            if !extraButtons.isEmpty {
+            if remote.showAllControls {
+                allControls
+            } else if !extraButtons.isEmpty {
                 extraControls
             }
         }
@@ -1708,6 +1729,36 @@ private struct UniversalRemoteSurface: View {
                             maxWidth: .infinity,
                             minHeight: 72
                         )
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(IRCyberPalette.cyan)
+                }
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 20)
+    }
+
+    private var allControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Todos los controles", systemImage: "square.grid.3x3.fill")
+                .font(.headline)
+
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(remote.buttons) { button in
+                    Button {
+                        transmitter.send(code: button.code)
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(systemName: RemoteButtonIcon.systemImage(for: button.name))
+                                .font(.title3)
+
+                            Text(button.name)
+                                .font(.caption.bold())
+                                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 72)
                     }
                     .buttonStyle(.bordered)
                     .tint(IRCyberPalette.cyan)
