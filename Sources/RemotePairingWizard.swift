@@ -14,6 +14,7 @@ struct RemoteBrandPickerView: View {
 
     @StateObject private var library = OnlineIRLibrary()
     @State private var searchText = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let alphabet =
         Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -133,8 +134,12 @@ struct RemoteBrandPickerView: View {
                             alphabetIndex(
                                 letters: sections.map(\.letter)
                             ) { letter in
-                                withAnimation(.easeOut(duration: 0.16)) {
+                                if reduceMotion {
                                     proxy.scrollTo(letter, anchor: .top)
+                                } else {
+                                    withAnimation(.easeOut(duration: 0.16)) {
+                                        proxy.scrollTo(letter, anchor: .top)
+                                    }
                                 }
                             }
                         }
@@ -186,7 +191,7 @@ struct RemoteBrandPickerView: View {
                     .font(.body.weight(.medium))
             }
             .frame(minHeight: 44)
-            .padding(.trailing, isSearchingBrands ? 0 : 18)
+            .padding(.trailing, isSearchingBrands ? 0 : 48)
         }
     }
 
@@ -194,23 +199,25 @@ struct RemoteBrandPickerView: View {
         letters: [String],
         onSelect: @escaping (String) -> Void
     ) -> some View {
-        VStack(spacing: 0) {
-            ForEach(letters, id: \.self) { letter in
-                Button {
-                    onSelect(letter)
-                    IRHaptics.tap()
-                } label: {
-                    Text(letter)
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundStyle(IRCyberPalette.cyan)
-                        .frame(width: 24)
-                        .frame(minHeight: 17)
-                        .contentShape(Rectangle())
+        ScrollView(.vertical, showsIndicators: false) {
+            LazyVStack(spacing: 0) {
+                ForEach(letters, id: \.self) { letter in
+                    Button {
+                        onSelect(letter)
+                        IRHaptics.tap()
+                    } label: {
+                        Text(letter)
+                            .font(.caption2.bold())
+                            .foregroundStyle(IRCyberPalette.cyan)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Marcas con inicial \(letter)")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Marcas con inicial \(letter)")
             }
         }
+        .frame(width: 44)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay {
