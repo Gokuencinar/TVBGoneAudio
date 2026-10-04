@@ -1096,6 +1096,23 @@ private struct UniversalRemoteSurface: View {
                 )
             }
 
+            if matcher.button(for: .guide) != nil
+                || matcher.button(for: .info) != nil
+            {
+                HStack(spacing: 10) {
+                    remoteSemanticButton(
+                        .guide,
+                        title: "Guía",
+                        icon: "list.bullet.rectangle"
+                    )
+                    remoteSemanticButton(
+                        .info,
+                        title: "Info",
+                        icon: "info.circle"
+                    )
+                }
+            }
+
             if hasPlaybackControls {
                 HStack(spacing: 8) {
                     compactSemanticButton(
@@ -2276,7 +2293,7 @@ private enum RemoteSemantic: String, Identifiable {
         .volumeUp, .volumeDown,
         .channelUp, .channelDown,
         .up, .down, .left, .right, .ok,
-        .back, .home, .menu,
+        .back, .home, .menu, .guide, .info,
         .rewind, .play, .pause, .playPause, .stop, .fastForward,
     ] + numberSemantics
 
