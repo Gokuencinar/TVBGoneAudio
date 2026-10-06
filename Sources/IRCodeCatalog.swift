@@ -16,11 +16,29 @@ enum IRCodeCatalog {
         case .airConditioner:
             return GeneratedFlipperPowerDatabase.airConditioners
 
+        case .setTopBox:
+            return GeneratedFlipperPowerDatabase.setTopBoxes
+
+        case .fan:
+            return GeneratedFlipperPowerDatabase.fans
+
+        case .streamingBox:
+            return GeneratedFlipperPowerDatabase.streamingBoxes
+
+        case .dvdPlayer:
+            return GeneratedFlipperPowerDatabase.dvdPlayers
+
         case .projector:
             return GeneratedFlipperPowerDatabase.projectors
 
-        default:
-            return []
+        case .avReceiver:
+            return GeneratedFlipperPowerDatabase.avReceivers
+
+        case .camera:
+            return GeneratedFlipperPowerDatabase.cameras
+
+        case .soundbar:
+            return GeneratedFlipperPowerDatabase.soundbars
         }
     }
 
@@ -37,11 +55,22 @@ enum IRCodeCatalog {
             )
         case .airConditioner:
             return GeneratedFlipperPowerDatabase.airConditioners
+        case .setTopBox:
+            return GeneratedFlipperPowerDatabase.setTopBoxes
+        case .fan:
+            return GeneratedFlipperPowerDatabase.fans
+        case .streamingBox:
+            return GeneratedFlipperPowerDatabase.streamingBoxes
+        case .dvdPlayer:
+            return GeneratedFlipperPowerDatabase.dvdPlayers
         case .projector:
             return GeneratedFlipperPowerDatabase.projectors
-
-        default:
-            return []
+        case .avReceiver:
+            return GeneratedFlipperPowerDatabase.avReceivers
+        case .camera:
+            return GeneratedFlipperPowerDatabase.cameras
+        case .soundbar:
+            return GeneratedFlipperPowerDatabase.soundbars
         }
     }
 

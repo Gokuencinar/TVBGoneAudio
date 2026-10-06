@@ -56,6 +56,7 @@ final class IRTransmitter: ObservableObject {
     private var sessionToken = UUID()
     private var currentCodes: [IRCode] = []
     private var currentIndex = 0
+    private var currentRepeatIndex = 0
     private var currentPace: ScanPace = .fast
     private var currentCategory: IRDeviceCategory = .television
 
@@ -116,6 +117,7 @@ final class IRTransmitter: ObservableObject {
         currentCategory = category
         currentCodes = uniqueCodes
         currentIndex = 0
+        currentRepeatIndex = 0
         currentPace = pace
         recentCodeIDs = []
 
@@ -190,6 +192,7 @@ final class IRTransmitter: ObservableObject {
             max(0, currentIndex + delta),
             currentCodes.count - 1
         )
+        currentRepeatIndex = 0
 
         sentCount = currentIndex
         progress =
@@ -198,7 +201,8 @@ final class IRTransmitter: ObservableObject {
 
         preview(
             code: currentCodes[currentIndex],
-            preserveScan: true
+            preserveScan: true,
+            repeatCount: currentCategory.scanRepeatCount
         )
     }
 
@@ -294,6 +298,7 @@ final class IRTransmitter: ObservableObject {
         currentCodeID = nil
         currentCodeName = nil
         currentCarrierHz = 0
+        currentRepeatIndex = 0
 
         if resetProgress {
             progress = 0
@@ -305,7 +310,8 @@ final class IRTransmitter: ObservableObject {
 
     private func preview(
         code: IRCode,
-        preserveScan: Bool
+        preserveScan: Bool,
+        repeatCount: Int = 1
     ) {
         let wasScanning = isScanning
         let wasPaused = isPaused
@@ -344,41 +350,53 @@ final class IRTransmitter: ObservableObject {
                 isPreviewing = true
             }
 
-            let buffer = render(
-                code: code,
-                format: format,
-                gapSeconds: 0.10
-            )
-
             let token = UUID()
             sessionToken = token
-            transmissionPulse += 1
+            let repeats = max(1, repeatCount)
 
-            player.scheduleBuffer(
-                buffer,
-                at: nil,
-                options: [],
-                completionCallbackType: .dataPlayedBack
-            ) { [weak self] _ in
-                Task { @MainActor in
-                    guard let self,
-                          self.sessionToken == token else {
-                        return
-                    }
+            for repeatIndex in 0..<repeats {
+                let isLast = repeatIndex == repeats - 1
+                let gapSeconds =
+                    isLast
+                    ? 0.10
+                    : max(currentPace.gapSeconds, 0.45)
 
-                    self.player.stop()
-                    if self.engine.isRunning {
-                        self.engine.stop()
-                    }
+                let buffer = render(
+                    code: code,
+                    format: format,
+                    gapSeconds: gapSeconds
+                )
 
-                    self.isPreviewing = false
+                transmissionPulse += 1
 
-                    if preserveScan {
-                        self.isScanning = wasScanning
-                        self.isPaused = wasPaused
-                    } else {
-                        self.currentCodeID = nil
-                        self.currentCodeName = nil
+                player.scheduleBuffer(
+                    buffer,
+                    at: nil,
+                    options: [],
+                    completionCallbackType: .dataPlayedBack
+                ) { [weak self] _ in
+                    guard isLast else { return }
+
+                    Task { @MainActor in
+                        guard let self,
+                              self.sessionToken == token else {
+                            return
+                        }
+
+                        self.player.stop()
+                        if self.engine.isRunning {
+                            self.engine.stop()
+                        }
+
+                        self.isPreviewing = false
+
+                        if preserveScan {
+                            self.isScanning = wasScanning
+                            self.isPaused = wasPaused
+                        } else {
+                            self.currentCodeID = nil
+                            self.currentCodeName = nil
+                        }
                     }
                 }
             }
@@ -547,6 +565,7 @@ final class IRTransmitter: ObservableObject {
             sampleRate: format.sampleRate
         ) {
             skippedCount += 1
+            currentRepeatIndex = 0
             advanceAfterCode(
                 token: token,
                 format: format
@@ -554,12 +573,21 @@ final class IRTransmitter: ObservableObject {
             return
         }
 
-        remember(code)
+        if currentRepeatIndex == 0 {
+            remember(code)
+        }
+
+        let gapSeconds =
+            currentCategory.scanRepeatCount > 1
+                && currentRepeatIndex + 1
+                    < currentCategory.scanRepeatCount
+            ? max(currentPace.gapSeconds, 0.45)
+            : currentPace.gapSeconds
 
         let buffer = render(
             code: code,
             format: format,
-            gapSeconds: currentPace.gapSeconds
+            gapSeconds: gapSeconds
         )
 
         transmissionPulse += 1
@@ -580,10 +608,21 @@ final class IRTransmitter: ObservableObject {
                     return
                 }
 
-                self.advanceAfterCode(
-                    token: token,
-                    format: format
-                )
+                if self.currentRepeatIndex + 1
+                    < self.currentCategory.scanRepeatCount
+                {
+                    self.currentRepeatIndex += 1
+                    self.scheduleCurrent(
+                        token: token,
+                        format: format
+                    )
+                } else {
+                    self.currentRepeatIndex = 0
+                    self.advanceAfterCode(
+                        token: token,
+                        format: format
+                    )
+                }
             }
         }
     }
@@ -598,6 +637,7 @@ final class IRTransmitter: ObservableObject {
             / Double(max(1, totalCount))
 
         currentIndex += 1
+        currentRepeatIndex = 0
 
         if currentIndex >= currentCodes.count {
             finishScan()
@@ -618,6 +658,7 @@ final class IRTransmitter: ObservableObject {
         currentCodeID = nil
         currentCodeName = nil
         currentCarrierHz = 0
+        currentRepeatIndex = 0
 
         player.stop()
         if engine.isRunning {

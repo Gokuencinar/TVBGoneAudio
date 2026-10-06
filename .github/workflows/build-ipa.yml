@@ -29,7 +29,7 @@ jobs:
             /tmp/WORLD_IR_CODES.h \
             Sources/GeneratedTVBGoneDatabase.swift
 
-      - name: Generate expanded TV / AC / projector database
+      - name: Generate expanded multi-device POWER / OFF database
         run: |
           rm -rf /tmp/Flipper-IRDB
           git init /tmp/Flipper-IRDB
@@ -37,7 +37,7 @@ jobs:
             https://github.com/Lucaslhm/Flipper-IRDB.git
           git -C /tmp/Flipper-IRDB config core.sparseCheckout true
           mkdir -p /tmp/Flipper-IRDB/.git/info
-          printf 'TVs/\nACs/\nProjectors/\n' \
+          printf 'TVs/\nUniversal_TV_Remotes/\nACs/\nCable_Boxes/\nConverters/\nDVB-T/\nTV_Tuner/\nFans/\nStreaming_Devices/\nDVD_Players/\nBlu-Ray/\nLaserdisc/\nVCR/\nProjectors/\nAudio_and_Video_Receivers/\nCameras/\nCCTV/\nSoundBars/\n' \
             > /tmp/Flipper-IRDB/.git/info/sparse-checkout
 
           # Pinned for reproducible builds.

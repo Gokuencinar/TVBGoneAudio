@@ -201,7 +201,7 @@ private struct ControlView: View {
                     quickDevices
                     recentWorkedCard
 
-                    DeviceCategoryPicker(
+                    ControlDeviceCategoryPicker(
                         category: $category,
                         disabled: transmitter.isScanning
                     )
@@ -222,7 +222,7 @@ private struct ControlView: View {
             .navigationTitle("TVBGoneAudio")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                if !IRDeviceCategory.scanCategories.contains(category) {
+                if !IRDeviceCategory.remoteCategories.contains(category) {
                     category = .television
                 }
                 transmitter.inspectOutputRoute()
@@ -562,6 +562,15 @@ private struct ControlView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            if category.scanRepeatCount > 1 {
+                Label(
+                    "Cada código se envía \(category.scanRepeatCount) veces antes de pasar al siguiente.",
+                    systemImage: "repeat"
+                )
+                .font(.caption.bold())
+                .foregroundStyle(IRCyberPalette.warning)
+            }
+
             Button {
                 if transmitter.isScanning {
                     transmitter.stop()
@@ -734,11 +743,23 @@ private struct ControlView: View {
                     - transmitter.sentCount
             )
 
+        let repeatCount =
+            category.scanRepeatCount
+
+        let secondsPerCode =
+            Double(repeatCount)
+                * (pace.gapSeconds + 0.12)
+            + Double(max(0, repeatCount - 1))
+                * (
+                    max(pace.gapSeconds, 0.45)
+                    - pace.gapSeconds
+                )
+
         let seconds =
             Int(
                 ceil(
                     Double(remaining)
-                    * (pace.gapSeconds + 0.12)
+                    * secondsPerCode
                 )
             )
 
@@ -918,7 +939,8 @@ private struct ManualCodeView: View {
                 VStack(spacing: 16) {
                     DeviceCategoryPicker(
                         category: $category,
-                        disabled: transmitter.isScanning
+                        disabled: transmitter.isScanning,
+                        categories: IRDeviceCategory.remoteCategories
                     )
 
                     if category == .television {
@@ -985,7 +1007,7 @@ private struct ManualCodeView: View {
                 }
                 .padding()
                 .onAppear {
-                    if !IRDeviceCategory.scanCategories.contains(category) {
+                    if !IRDeviceCategory.remoteCategories.contains(category) {
                         category = .television
                     }
                     normalizeSelection()
@@ -2358,6 +2380,122 @@ struct DeviceCategoryPicker: View {
                 .irOLEDControlSurface()
                 .disabled(disabled)
         }
+    }
+}
+
+private struct ControlDeviceCategoryPicker: View {
+    @Binding var category: IRDeviceCategory
+    let disabled: Bool
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 128), spacing: 10),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label(
+                    "Tipo de dispositivo",
+                    systemImage: "square.grid.2x2.fill"
+                )
+                .font(.headline)
+
+                Spacer()
+
+                IRCyberBadge(
+                    text: category.shortTitle.uppercased(),
+                    systemImage: category.systemImage,
+                    tint: IRCyberPalette.cyan
+                )
+            }
+
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(IRDeviceCategory.remoteCategories) { item in
+                    let selected = item == category
+
+                    Button {
+                        category = item
+                    } label: {
+                        VStack(spacing: 8) {
+                            ZStack {
+                                RoundedRectangle(
+                                    cornerRadius: 14,
+                                    style: .continuous
+                                )
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            IRCyberPalette.cyan.opacity(
+                                                selected ? 0.24 : 0.10
+                                            ),
+                                            IRCyberPalette.magenta.opacity(
+                                                selected ? 0.15 : 0.04
+                                            ),
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(height: 58)
+
+                                Image(systemName: item.systemImage)
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundStyle(
+                                        selected
+                                        ? IRCyberPalette.cyan
+                                        : Color.secondary
+                                    )
+                            }
+
+                            Text(item.shortTitle)
+                                .font(.caption.bold())
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .frame(minHeight: 32)
+
+                            Label(
+                                "SELECCIONADO",
+                                systemImage: "checkmark.circle.fill"
+                            )
+                            .font(.caption2.monospaced().bold())
+                            .foregroundStyle(IRCyberPalette.success)
+                            .opacity(selected ? 1 : 0)
+                            .accessibilityHidden(!selected)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(9)
+                        .background(
+                            RoundedRectangle(
+                                cornerRadius: 17,
+                                style: .continuous
+                            )
+                            .fill(Color.primary.opacity(0.035))
+                        )
+                        .overlay(
+                            RoundedRectangle(
+                                cornerRadius: 17,
+                                style: .continuous
+                            )
+                            .stroke(
+                                selected
+                                ? IRCyberPalette.cyan.opacity(0.75)
+                                : Color.secondary.opacity(0.16),
+                                lineWidth: selected ? 1.5 : 1
+                            )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(item.title)
+                    .accessibilityValue(
+                        selected ? "Seleccionado" : "No seleccionado"
+                    )
+                }
+            }
+        }
+        .padding()
+        .irCard(cornerRadius: 20)
+        .opacity(disabled ? 0.55 : 1)
+        .disabled(disabled)
     }
 }
 

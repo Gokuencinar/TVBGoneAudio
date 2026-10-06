@@ -8,6 +8,25 @@ Historial de cambios de **TVBGoneAudio**.
 
 > Nota: las versiones recientes están respaldadas por Releases de GitHub. Las etapas anteriores se reconstruyen a partir de la documentación histórica y del historial del repositorio.
 
+## 6.3 — 2026-10-06
+
+### Control universal para todos los dispositivos
+
+- **Control** deja de estar limitado a TV, aire acondicionado y proyector: ahora permite elegir las mismas diez categorías disponibles en **Mando**.
+- Nuevo selector visual en cuadrícula para TV, aire, decodificador, ventilador, Smart Box, DVD/Blu-ray, proyector, receptor A/V, cámara y barra de sonido.
+- La base POWER/OFF local generada desde Flipper-IRDB se amplía a todas esas categorías para poder realizar barridos sin depender de Internet.
+- **Códigos** usa también el catálogo local ampliado, evitando que al cambiar de pestaña una categoría nueva se restablezca inesperadamente a TV durante un barrido.
+- Los perfiles de decodificador combinan Cable Boxes, Converters, DVB-T y TV Tuner; DVD/Blu-ray también cubre LaserDisc y VCR; cámaras incorporan perfiles Camera y CCTV.
+- En **Proyector**, cada código POWER/OFF se transmite automáticamente **dos veces** antes de avanzar al siguiente candidato, dejando una pausa mínima entre ambas pulsaciones para cubrir el apagado con confirmación habitual de los proyectores.
+- El contador de progreso sigue representando códigos candidatos, y la estimación de tiempo tiene en cuenta la doble transmisión de proyectores.
+- Se mantiene intacta la generación física de la señal IR por audio: portadora, timings MARK/SPACE, salida estéreo L/R en antifase y negociación de sample rate.
+
+### Mandos guardados
+
+- Cada mando guardado puede alternar entre la distribución organizada y un modo **Mostrar todos los controles** con el máximo de botones IR disponibles.
+- Los mandos guardados se pueden eliminar desde su menú contextual sin afectar al resto de la biblioteca.
+- El nuevo ajuste `showAllControls` mantiene compatibilidad con mandos guardados en versiones anteriores.
+
 ## 6.2 — 2026-10-04
 
 ### Marcas A–Z estilo Mi Remote

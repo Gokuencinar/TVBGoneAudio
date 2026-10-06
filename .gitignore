@@ -3,5 +3,7 @@ build/
 DerivedData/
 TVBGoneAudio.xcodeproj/
 Sources/GeneratedTVBGoneDatabase.swift
+Sources/GeneratedFlipperPowerDatabase.swift
+scripts/__pycache__/
 Payload/
 *.ipa

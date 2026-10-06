@@ -173,9 +173,19 @@ enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .television: return "APAGAR TELEVISORES"
         case .airConditioner: return "APAGAR AIRES"
+        case .setTopBox: return "APAGAR DECODIFICADORES"
+        case .fan: return "APAGAR VENTILADORES"
+        case .streamingBox: return "APAGAR SMART BOX"
+        case .dvdPlayer: return "APAGAR DVD / BLU-RAY"
         case .projector: return "APAGAR PROYECTORES"
-        default: return "PROBAR POWER"
+        case .avReceiver: return "APAGAR RECEPTORES A/V"
+        case .camera: return "APAGAR CÁMARAS"
+        case .soundbar: return "APAGAR BARRAS DE SONIDO"
         }
+    }
+
+    var scanRepeatCount: Int {
+        self == .projector ? 2 : 1
     }
 
     var systemImage: String {
@@ -200,21 +210,21 @@ enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
         case .airConditioner:
             return "Recorre señales POWER/OFF de mandos de aire acondicionado, priorizando capturas RAW."
         case .projector:
-            return "Recorre señales POWER/OFF de proyectores de distintas marcas y modelos."
+            return "Recorre señales POWER/OFF de proyectores de distintas marcas y modelos. Cada candidato se envía dos veces para confirmar el apagado."
         case .setTopBox:
-            return "Busca un mando completo por operador, marca o modelo en las bibliotecas IR online."
+            return "Recorre señales POWER/OFF de decodificadores, receptores de TV y convertidores."
         case .fan:
-            return "Busca mandos de ventilador con POWER, velocidad, oscilación, modo y temporizador cuando estén disponibles."
+            return "Recorre señales POWER/OFF de ventiladores con mando infrarrojo."
         case .streamingBox:
-            return "Busca mandos de TV Box y dispositivos de streaming por marca o modelo."
+            return "Recorre señales POWER/OFF de TV Box y dispositivos de streaming."
         case .dvdPlayer:
-            return "Busca mandos de DVD y Blu-ray con navegación y controles multimedia."
+            return "Recorre señales POWER/OFF de DVD, Blu-ray, LaserDisc y VCR."
         case .avReceiver:
-            return "Busca receptores A/V con volumen, fuente, mute, navegación y modos de sonido."
+            return "Recorre señales POWER/OFF de receptores y amplificadores A/V."
         case .camera:
-            return "Busca mandos IR para cámaras compatibles."
+            return "Recorre las señales POWER/OFF disponibles para cámaras y equipos CCTV compatibles."
         case .soundbar:
-            return "Busca barras de sonido con POWER, volumen, mute, fuente y modos de audio."
+            return "Recorre señales POWER/OFF de barras de sonido de distintas marcas."
         }
     }
 }

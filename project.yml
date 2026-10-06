@@ -33,8 +33,8 @@ targets:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: TVBGoneAudio
-        CFBundleShortVersionString: "6.2"
-        CFBundleVersion: "25"
+        CFBundleShortVersionString: "6.3"
+        CFBundleVersion: "26"
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations:
