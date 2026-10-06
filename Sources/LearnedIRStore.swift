@@ -130,34 +130,6 @@ final class LearnedIRStore: ObservableObject {
         save()
     }
 
-    func rename(
-        _ signal: LearnedIRSignal,
-        to newName: String
-    ) {
-        guard
-            let index =
-                signals.firstIndex(
-                    where: {
-                        $0.id == signal.id
-                    }
-                )
-        else {
-            return
-        }
-
-        let clean =
-            newName.trimmingCharacters(
-                in: .whitespacesAndNewlines
-            )
-
-        guard !clean.isEmpty else {
-            return
-        }
-
-        signals[index].name = clean
-        save()
-    }
-
     private func load() {
         guard
             let data =

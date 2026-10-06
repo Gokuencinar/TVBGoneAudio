@@ -34,7 +34,7 @@ targets:
       properties:
         CFBundleDisplayName: TVBGoneAudio
         CFBundleShortVersionString: "6.3"
-        CFBundleVersion: "26"
+        CFBundleVersion: "27"
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations:

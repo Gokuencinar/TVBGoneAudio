@@ -27,6 +27,15 @@ Historial de cambios de **TVBGoneAudio**.
 - Los mandos guardados se pueden eliminar desde su menú contextual sin afectar al resto de la biblioteca.
 - El nuevo ajuste `showAllControls` mantiene compatibilidad con mandos guardados en versiones anteriores.
 
+### Limpieza y coherencia
+
+- Eliminados componentes Swift sin ningún uso, helpers residuales de pruebas y rutas antiguas del selector de tres categorías.
+- **Códigos** ya no muestra filtros de origen que no pueden devolver resultados para dispositivos distintos de TV; esas categorías usan directamente su catálogo IR disponible.
+- Eliminados los estados fijos de **Audio mono** y **Balance** que se mostraban como si la app pudiera comprobarlos; se conserva la recomendación de configuración en la ayuda.
+- Eliminados artefactos accidentales del repositorio, una plantilla generada sin consumidores y ramas antiguas del generador de iconos alternativos.
+- Unificados restos de branding antiguo en el actualizador, peticiones online, copias de seguridad y generador de iconos.
+- Actualizadas las acciones de GitHub del workflow para evitar dependencias Node obsoletas.
+
 ## 6.2 — 2026-10-04
 
 ### Marcas A–Z estilo Mi Remote

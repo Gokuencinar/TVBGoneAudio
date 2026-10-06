@@ -222,9 +222,6 @@ private struct ControlView: View {
             .navigationTitle("TVBGoneAudio")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                if !IRDeviceCategory.remoteCategories.contains(category) {
-                    category = .television
-                }
                 transmitter.inspectOutputRoute()
             }
             .sheet(isPresented: $showWorkedSheet) {
@@ -939,8 +936,7 @@ private struct ManualCodeView: View {
                 VStack(spacing: 16) {
                     DeviceCategoryPicker(
                         category: $category,
-                        disabled: transmitter.isScanning,
-                        categories: IRDeviceCategory.remoteCategories
+                        disabled: transmitter.isScanning
                     )
 
                     if category == .television {
@@ -991,13 +987,15 @@ private struct ManualCodeView: View {
                     .irOLEDInput()
                     .textInputAutocapitalization(.never)
 
-                    Picker("Origen", selection: $source) {
-                        ForEach(IRSourceFilter.allCases) { item in
-                            Text(item.title).tag(item)
+                    if category == .television {
+                        Picker("Origen", selection: $source) {
+                            ForEach(IRSourceFilter.allCases) { item in
+                                Text(item.title).tag(item)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .irOLEDControlSurface()
                     }
-                    .pickerStyle(.segmented)
-                    .irOLEDControlSurface()
 
                     localBrandBrowser
 
@@ -1007,14 +1005,14 @@ private struct ManualCodeView: View {
                 }
                 .padding()
                 .onAppear {
-                    if !IRDeviceCategory.remoteCategories.contains(category) {
-                        category = .television
-                    }
                     normalizeSelection()
                 }
                 .onChange(of: category) { _ in
                     stopBrandScanIfNeeded()
                     selectedBrowseName = ""
+                    if category != .television {
+                        source = .all
+                    }
                     normalizeSelection()
                 }
                 .onChange(of: region) { _ in
@@ -2203,18 +2201,6 @@ private struct SettingsInfoView: View {
                             )
                         }
 
-                        Divider()
-
-                        Label(
-                            "Audio mono: DESACTIVADO",
-                            systemImage: "checkmark.circle"
-                        )
-
-                        Label(
-                            "Balance: centrado",
-                            systemImage: "slider.horizontal.3"
-                        )
-
                         Label(
                             "Volumen multimedia: \(Int((transmitter.outputVolume * 100).rounded())) %",
                             systemImage: "speaker.wave.3.fill"
@@ -2355,31 +2341,22 @@ private struct SettingsInfoView: View {
 struct DeviceCategoryPicker: View {
     @Binding var category: IRDeviceCategory
     let disabled: Bool
-    var categories: [IRDeviceCategory] = IRDeviceCategory.scanCategories
 
     private var picker: some View {
         Picker("Tipo", selection: $category) {
-            ForEach(categories) { item in
+            ForEach(IRDeviceCategory.allCases) { item in
                 Label(item.shortTitle, systemImage: item.systemImage)
                     .tag(item)
             }
         }
     }
 
-    @ViewBuilder
     var body: some View {
-        if categories.count <= 4 {
-            picker
-                .pickerStyle(.segmented)
-                .irOLEDControlSurface()
-                .disabled(disabled)
-        } else {
-            picker
-                .pickerStyle(.menu)
-                .tint(IRCyberPalette.cyan)
-                .irOLEDControlSurface()
-                .disabled(disabled)
-        }
+        picker
+            .pickerStyle(.menu)
+            .tint(IRCyberPalette.cyan)
+            .irOLEDControlSurface()
+            .disabled(disabled)
     }
 }
 
@@ -2410,7 +2387,7 @@ private struct ControlDeviceCategoryPicker: View {
             }
 
             LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(IRDeviceCategory.remoteCategories) { item in
+                ForEach(IRDeviceCategory.allCases) { item in
                     let selected = item == category
 
                     Button {
@@ -2518,60 +2495,6 @@ private struct CodeDetailsCard: View {
                 .textSelection(.enabled)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .irCard(cornerRadius: 18)
-    }
-}
-
-private struct SavedDeviceCard: View {
-    let device: SavedIRDevice
-
-    @ObservedObject var transmitter: IRTransmitter
-    @ObservedObject var savedDevices: SavedDeviceStore
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(.red.opacity(0.12))
-                    .frame(width: 48, height: 48)
-
-                Image(systemName: device.category.systemImage)
-                    .foregroundStyle(.red)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(device.name)
-                    .font(.headline)
-
-                Text(device.codeLabel)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-
-            Spacer()
-
-            Button {
-                guard let code = savedDevices.code(for: device) else {
-                    return
-                }
-                transmitter.send(code: code)
-            } label: {
-                Image(systemName: "power")
-                    .font(.title3.bold())
-                    .frame(width: 42, height: 42)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.red)
-
-            Button(role: .destructive) {
-                savedDevices.remove(device)
-            } label: {
-                Image(systemName: "trash")
-            }
-            .buttonStyle(.borderless)
-        }
         .padding()
         .irCard(cornerRadius: 18)
     }
@@ -2756,9 +2679,7 @@ private struct LearnIRView: View {
                         category: $category,
                         disabled:
                             learner.isRecording
-                            || transmitter.isScanning,
-                        categories:
-                            IRDeviceCategory.remoteCategories
+                            || transmitter.isScanning
                     )
 
                     studioTools

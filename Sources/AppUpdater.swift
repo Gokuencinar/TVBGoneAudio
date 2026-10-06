@@ -101,7 +101,7 @@ final class AppUpdater: ObservableObject {
             )
 
             request.setValue(
-                "IR-Universal-Updater",
+                "TVBGoneAudio-Updater",
                 forHTTPHeaderField:
                     "User-Agent"
             )

@@ -17,11 +17,6 @@ enum UniversalPowerCodes {
         necExtended(id: "universal-elitelux-power", bytes: [0x00, 0x7F, 0x15, 0xEA]),
     ]
 
-    /// Vestel's classic TV power command is RC5 0x100C.
-    /// This is useful as a focused TD Systems/Vestel hardware test.
-    static let vestelTDSystemsTest: IRCode =
-        rc5(id: "tdsystems-vestel-rc5-100c", address: 0x00, command: 0x0C, toggle: false, repeats: 4)
-
     private static func samsung32(id: String, address: UInt8, command: UInt8) -> IRCode {
         let bytes: [UInt8] = [address, address, command, ~command]
         return IRCode(id: id, carrierHz: 38_000, durationsMicros: pulseDistance(

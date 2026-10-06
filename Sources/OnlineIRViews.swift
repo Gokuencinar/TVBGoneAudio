@@ -129,8 +129,7 @@ struct OnlineIRLibraryView: View {
 
             DeviceCategoryPicker(
                 category: $category,
-                disabled: library.isSearching,
-                categories: IRDeviceCategory.remoteCategories
+                disabled: library.isSearching
             )
 
             TextField(

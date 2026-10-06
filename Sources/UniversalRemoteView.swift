@@ -787,7 +787,7 @@ private struct RemoteAddDeviceSheet: View {
                     }
 
                     LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(IRDeviceCategory.remoteCategories) { item in
+                        ForEach(IRDeviceCategory.allCases) { item in
                             NavigationLink {
                                 RemoteBrandPickerView(
                                     category: item,

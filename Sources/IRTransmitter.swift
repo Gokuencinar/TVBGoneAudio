@@ -38,8 +38,6 @@ final class IRTransmitter: ObservableObject {
     @Published private(set) var routeDescription = "Sin configurar"
     @Published private(set) var sampleRate: Double = 0
     @Published private(set) var outputChannels: Int = 0
-    @Published private(set) var outputPortType = ""
-    @Published private(set) var isExternalOutput = false
     @Published private(set) var outputRouteSuitableForIR = false
     @Published private(set) var warning: String?
     @Published private(set) var currentCodeID: String?
@@ -432,11 +430,6 @@ final class IRTransmitter: ObservableObject {
         let output = session.currentRoute.outputs.first
         let channels = output?.channels?.count ?? 0
         outputChannels = channels
-        outputPortType = output?.portType.rawValue ?? ""
-        isExternalOutput =
-            output != nil
-            && output?.portType != .builtInSpeaker
-            && output?.portType != .builtInReceiver
 
         if let output {
             switch output.portType {

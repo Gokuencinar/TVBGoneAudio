@@ -323,29 +323,6 @@ final class CustomRemoteStore: ObservableObject {
         }
     }
 
-    func removeButton(
-        _ button: CustomRemoteButton,
-        from remote: CustomRemote
-    ) {
-        guard
-            let index =
-                remotes.firstIndex(
-                    where: {
-                        $0.id == remote.id
-                    }
-                )
-        else {
-            return
-        }
-
-        remotes[index].buttons
-            .removeAll {
-                $0.id == button.id
-            }
-
-        save()
-    }
-
     private func load() {
         guard
             let data =

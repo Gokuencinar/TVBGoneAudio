@@ -22,7 +22,6 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
     @Published private(set) var isRecording = false
     @Published private(set) var inputDescription = "Sin comprobar"
     @Published private(set) var inputChannels = 0
-    @Published private(set) var inputPortType = ""
     @Published private(set) var isExternalInput = false
     @Published private(set) var availableInputDescriptions: [String] = []
     @Published private(set) var sampleRate: Double = 0
@@ -147,8 +146,6 @@ final class IRLearner: NSObject, ObservableObject, AVAudioRecorderDelegate {
     ) {
         inputChannels =
             input?.channels?.count ?? 0
-        inputPortType =
-            input?.portType.rawValue ?? ""
         isExternalInput =
             input != nil
             && input?.portType != .builtInMic

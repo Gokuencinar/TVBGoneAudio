@@ -14,8 +14,9 @@ https://github.com/shirriff/Arduino-TV-B-Gone
 
 ## Flipper-IRDB
 
-The expanded television, air-conditioner and projector POWER/OFF database is
-generated from Lucaslhm/Flipper-IRDB.
+The expanded POWER/OFF database for televisions, air conditioners, set-top
+boxes, fans, streaming devices, disc players, projectors, A/V receivers,
+cameras and soundbars is generated from Lucaslhm/Flipper-IRDB.
 
 The repository's LICENSE file applies CC0 1.0 Universal to that database.
 

@@ -105,25 +105,6 @@ enum IRDeviceCategory: String, CaseIterable, Identifiable, Codable {
 
     var id: String { rawValue }
 
-    static let scanCategories: [IRDeviceCategory] = [
-        .television,
-        .airConditioner,
-        .projector,
-    ]
-
-    static let remoteCategories: [IRDeviceCategory] = [
-        .television,
-        .airConditioner,
-        .setTopBox,
-        .fan,
-        .streamingBox,
-        .dvdPlayer,
-        .projector,
-        .avReceiver,
-        .camera,
-        .soundbar,
-    ]
-
     var shortTitle: String {
         switch self {
         case .television: return "TV"
